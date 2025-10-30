@@ -94,9 +94,7 @@ Aktuell beschäftige ich mich mit der **Vorbereitung auf die Parser-Implementier
 
 ---
 
-### Aktuell
-
-- Ich lese das Buch **„Crafting Interpreters“ von Robert Nystrom**, um die Funktionsweise des Lox-Parsers und Interpreters im Detail zu verstehen.  
+### Aktuell 
 - Ich frische meine **Kenntnisse über endliche Automaten und Grammatiken** auf, um den Übergang vom Scanner zum Parser besser vorzubereiten.  
 - Ich recherchiere außerdem, **wie man Code-Ausgaben automatisch in README-Dateien einfügen kann**, um später die Testergebnisse direkt dokumentieren zu können.  
 ---
