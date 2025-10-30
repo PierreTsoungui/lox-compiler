@@ -74,6 +74,32 @@ public static final Map<String, TokenType>keywords= new HashMap <>();
         keywords.put("var", TokenType.VAR);
         keywords.put("while", TokenType.WHILE);
 }
-    
+  // Maps für Operatoren und Separatoren
+    public static final Map<String, TokenType> op= Map.ofEntries(
+            Map.entry("+", TokenType.PLUS),
+            Map.entry("-", TokenType.MINUS),
+            Map.entry("*", TokenType.STAR),
+            Map.entry("/", TokenType.SLASH),
+            Map.entry("==", TokenType.EQUAL_EQUAL),
+            Map.entry("=", TokenType.EQUAL),
+            Map.entry("!=", TokenType.BANG_EQUAL),
+            Map.entry("<", TokenType.LESS),
+            Map.entry("<=", TokenType.LESS_EQUAL),
+            Map.entry(">", TokenType.GREATER),
+            Map.entry(">=", TokenType.GREATER_EQUAL),
+            Map.entry("!", TokenType.BANG)
+    );
+
+    public static final Map<String, TokenType> sep = Map.ofEntries(
+            Map.entry("(", TokenType.LEFT_PAREN),
+            Map.entry(")", TokenType.RIGHT_PAREN),
+            Map.entry("{", TokenType.LEFT_BRACE),
+            Map.entry("}", TokenType.RIGHT_BRACE),
+            Map.entry("[", TokenType.LEFT_BRACKET),
+            Map.entry("]", TokenType.RIGHT_BRACKET),
+            Map.entry(",", TokenType.COMMA),
+            Map.entry(";", TokenType.SEMICOLON),
+            Map.entry(".", TokenType.DOT)
+    );   
 
 }
