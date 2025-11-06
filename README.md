@@ -95,8 +95,8 @@ Aktuell beschäftige ich mich mit der **Vorbereitung auf die Parser-Implementier
 ---
 
 ### Aktuell 
-- Ich frische meine **Kenntnisse über endliche Automaten und Grammatiken** auf, um den Übergang vom Scanner zum Parser besser vorzubereiten.  
-- Ich recherchiere außerdem, **wie man Code-Ausgaben automatisch in README-Dateien einfügen kann**, um später die Testergebnisse direkt dokumentieren zu können.  
+-Ich habe mit der Implementierung des Parsers angefangen und arbeite jetzt an der Integration von map und flatMap im Parser-Kombinator.  
+- 
 ---
 
-*Stand: 30. Oktober 2025*  
+*Stand: 6. November 2025*  
