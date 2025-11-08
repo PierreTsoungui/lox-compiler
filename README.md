@@ -95,8 +95,8 @@ Aktuell beschäftige ich mich mit der **Vorbereitung auf die Parser-Implementier
 ---
 
 ### Aktuell 
--Ich habe mit der Implementierung des Parsers angefangen und arbeite jetzt an der Integration von map und flatMap im Parser-Kombinator.  
+-Ich habe mit der Implementierung des Parsers angefangen und arbeite jetzt an der  Implementierung von die verschieden Parserteile.  
 - 
 ---
 
-*Stand: 6. November 2025*  
+*Stand: 8. November 2025*  
