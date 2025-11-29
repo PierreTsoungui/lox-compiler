@@ -1,0 +1,6 @@
+
+    class b<test {
+        a(par1,par2){
+            var a= 7;
+        }
+    }
