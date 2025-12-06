@@ -9,7 +9,7 @@ public class TestParser {
 
     List<Token> tokens = p.tokens;
 
-    Result<Program> result = p.program().parse(tokens);
+    Result<Stmt> result = p.classDecl().parse(tokens);
 
     if (result.hasFailed()) {
         throw new RuntimeException(
@@ -18,7 +18,7 @@ public class TestParser {
     }
 
     // AST ausgeben
-    Program program = result.recognized().get();
+    List<Stmt> stm = result.recognized().get();
     System.out.println(AstDot.toDot(program));
 
     System.out.println("OK → Datei vollständig geparst.");

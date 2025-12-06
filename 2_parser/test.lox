@@ -1,6 +1,6 @@
-
-    class b<test {
-        a(par1,par2){
-            var a= 7;
-        }
+class test<parser{
+    testp(pa1,pa2){
+        var b =2;
+        print a;
     }
+}
