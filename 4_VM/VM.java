@@ -757,15 +757,13 @@ void runScript(List<Op> code) {
  * Wandelt eine Textdarstellung von Opcodes mit Labels
  * in eine CompiledFunction (List<Op>) um.
  */
-
-
 class Assembler {
 
     //Hauptmethode: assemble ---
     public CompiledFunction assemble(String source) {
-        List<String> lines = preprocess(source);           // Schritt 1: Zeilen bereinigen
-        Map<String, Integer> labels = collectLabels(lines); // Schritt 2: Labels sammeln
-        List<Op> code = generateOps(lines, labels);      // Schritt 3: Ops erzeugen
+        List<String> lines = preprocess(source);          
+        Map<String, Integer> labels = collectLabels(lines); 
+        List<Op> code = generateOps(lines, labels);  
         return new CompiledFunction("<script>", 0, code);
     }
 
