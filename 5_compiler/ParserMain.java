@@ -693,16 +693,15 @@ public class ParserMain {
 
 
     //logic_or       → logic_and ( "or" logic_and )* ; 
- 
     Parser<Expr> logicOr() {
-        return binaryLeftAssoc(logicAnd(), new Item(TokenType.OR), logicAnd());
+        return binaryLeftAssoc(logicAnd(), new Item(TokenType.OR), logicAnd(),false);
     }
 
 
     //logic_and      → equality ( "and" equality )* ;
     
     Parser<Expr> logicAnd() {
-         return binaryLeftAssoc(equality(), new Item(TokenType.AND), equality());
+         return binaryLeftAssoc(equality(), new Item(TokenType.AND), equality(),false);
     }
 
  
@@ -711,7 +710,7 @@ public class ParserMain {
         return binaryLeftAssoc(
         comparison(),
         new Or<>(new Item(TokenType.BANG_EQUAL), new Item(TokenType.EQUAL_EQUAL)),
-        comparison()
+        comparison(),true
     );
     }
 
@@ -719,7 +718,8 @@ public class ParserMain {
     private Parser<Expr> binaryLeftAssoc(
         Parser<Expr> operand,
         Parser<TokenNode> operator,
-         Parser<Expr> nextOperand
+         Parser<Expr> nextOperand,
+         boolean isBinary
     )
      {
         return operand.flatMap(first ->
@@ -732,7 +732,9 @@ public class ParserMain {
                 for (AstNode node : pairs.nodes()) {
                     @SuppressWarnings("unchecked")
                     Pair<Token, Expr> p = (Pair<Token, Expr>) node;
-                    expr = new Expr.Binary(expr, p.first(), p.second());
+                     expr = isBinary
+                    ? new Expr.Binary(expr, p.first(), p.second())
+                    : new Expr.Logical(expr, p.first(), p.second());
                 }
                 return expr;
             })
@@ -746,7 +748,7 @@ public class ParserMain {
             new Item(TokenType.GREATER),
             new Item(TokenType.GREATER_EQUAL)
         );
-         return binaryLeftAssoc(term(), op, term());
+         return binaryLeftAssoc(term(), op, term(),true );
 
     }
 
@@ -758,7 +760,7 @@ public class ParserMain {
             new Item(TokenType.PLUS)
         );
 
-          return binaryLeftAssoc(factor(), op, factor());
+          return binaryLeftAssoc(factor(), op, factor(),true);
     }
     
     Parser<Expr> factor() {
@@ -766,7 +768,7 @@ public class ParserMain {
             new Item(TokenType.SLASH),
             new Item(TokenType.STAR)
         );
-         return binaryLeftAssoc(unary(), op, unary());
+         return binaryLeftAssoc(unary(), op, unary(),true);
     }
        
 
@@ -855,14 +857,15 @@ public class ParserMain {
 
    Parser<Expr> primary() {
         Map<TokenType, Function<Token, Expr>> tokenMappings = Map.of(
-            TokenType.TRUE, t -> new Expr.Literal(true),
-            TokenType.FALSE, t -> new Expr.Literal(false),
-            TokenType.NIL, t -> new Expr.Literal(null),
-            TokenType.THIS, Expr.This::new,
-            TokenType.NUMBER, Expr.Literal::new,
-            TokenType.STRING, Expr.Literal::new,
-            TokenType.IDENTIFIER, Expr.Variable::new
+         TokenType.TRUE, t -> new Expr.Literal(true),
+         TokenType.FALSE, t -> new Expr.Literal(false),
+         TokenType.NIL, t -> new Expr.Literal(null),
+         TokenType.THIS, Expr.This::new,
+         TokenType.NUMBER, t -> new Expr.Literal(t.value()),
+         TokenType.STRING, t -> new Expr.Literal(t.value()),
+         TokenType.IDENTIFIER, Expr.Variable::new
         );
+
         @SuppressWarnings("unchecked")
         Parser<Expr> simpleTokens = new Or<>(
             tokenMappings.entrySet().stream()
@@ -913,6 +916,21 @@ public class ParserMain {
             .map(Item::new)
             .toArray(Parser[]::new);
     }
+    //Methode gibt eine liste for stmt nach dem Parsing
+    static List<Stmt> parseProgram(String source) {
+        ParserMain parser = ParserMain.fromSource(source);
+        Result<Stmt.Program> result = parser.program().parse(parser.tokens);
+
+        if (result.hasNotFailed()) { 
+            Stmt.Program prog = result.recognized().get(); 
+            return prog.declarations();
+        } else {
+            System.err.println("Parsing Error: " );
+            return List.of(); // leere Liste statt null
+    }
+}
+
+
 
 }
 
