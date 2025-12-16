@@ -1,46 +1,40 @@
 # Lox-Compiler – Projektstand
 
 ## Projektziel
-Ziel dieses Projekts ist es, einen **Compiler für die Programmiersprache Lox** zu entwickeln.  
-Der Compiler wird schrittweise von der **Lexikalischen Analyse (Scanner)** über einen **Parser** bis hin zur **Bytecode-Generierung für eine VM** umgesetzt.
+Ziel dieses Projekts ist die Entwicklung eines **Compilers für die Programmiersprache Lox**.  
+Der Compiler wird schrittweise von der **lexikalischen Analyse** über einen **Parser** bis hin zur **Bytecode-Generierung für eine virtuelle Maschine (VM)** aufgebaut.
 
 ---
 
 ## Aktueller Stand
 
-### Scanner (Lexikalische Analyse)
-- **Token-Typen** definiert in `src/scanning/TokenType.java`
-- **Token-Record** in `src/scanning/Token.java`
-- **TokenPattern** in `src/scanning/TokenPattern.java` mit regulären Ausdrücken für:
+### 1. Scanner (Lexikalische Analyse)
+- **Dateien & Strukturen:**  
+  - `TokenType.java` – Definition aller Token-Typen  
+  - `Token.java` – Token-Record  
+  - `TokenPattern.java` – Reguläre Ausdrücke für Token-Erkennung  
+
+- **Unterstützte Token-Typen:**  
   - Zahlen (`NUMBER`)  
   - Zeichenketten (`STRING`)  
-  - Identifikatoren und Keywords (`IDENTIFIER`)  
+  - Identifikatoren & Keywords (`IDENTIFIER`)  
   - Operatoren (`OPERATOR`)  
   - Separatoren (`SEPARATOR`)  
-  - Whitespace (`WHITESPACE`) und Zeilenumbrüche (`NEWLINE`)  
+  - Whitespace & Zeilenumbrüche (`WHITESPACE`, `NEWLINE`)  
   - Unbekannte Zeichen (`UNKNOWN`)  
 
-- **Funktionen implementiert:**  
-  - `tokenize()` – führt die lexikalische Analyse durch und erzeugt eine Liste von Tokens  
-  - `handleSeparator()` – spezielle Behandlung von Punkt-Separatoren und Fehlerprüfung  
-  - `addToken()` – fügt neue Tokens hinzu  
+- **Funktionen:**  
+  - `tokenize()` – erzeugt Liste von Tokens aus Quellcode  
+  - `handleSeparator()` – spezielle Behandlung von Punkt-Separatoren  
+  - `addToken()` – fügt Tokens der Liste hinzu  
 
-- **Features:**  
+- **Besonderheiten & Features:**  
   - Keywords werden automatisch erkannt  
-  - Kommentare (`// ...`) werden übersprungen  
-  - Fehlerbehandlung für unerwartete oder ungültige Zeichen ist implementiert  
+  - Kommentare (`// ...`) werden ignoriert  
+  - Fehlerhafte oder unerwartete Zeichen führen zur sofortigen Fehlerausgabe; bei Fehlern wird keine Token-Liste erzeugt  
   - EOF-Token wird nur bei fehlerfreiem Scannen erzeugt  
 
-- **Besonderheiten:**  
-  - Die regulären Ausdrücke für die Token-Erkennung wurden sorgfältig definiert und optimiert (dabei wurde mir bei der Formulierung der Regex-Ausdrücke geholfen)  
-  - Tokenizer stoppt sofort bei einem Fehler, um die Ausgabe ungültiger Tokens zu verhindern  
-  - Fehler werden auf der Konsole ausgegeben, und im Falle eines Fehlers wird keine Token-Liste zurückgegeben  
-
-> **Hinweis:** Die Scanner-Funktionalität ist vollständig implementiert.
-# Tests
-
-### 1. Einfache Tokenisierung
-**Eingabe:**
+- **Testbeispiel:**
 ```lox
 var a = 5;
 var b={ true};
@@ -48,55 +42,51 @@ print("Hello");
 var b= test;
 var i= 3+3;
 test[2]
-```
-**Ausgabe:**
-```text
-== Tokens ===
-TOKEN(VAR, var, null) on line 1
-TOKEN(IDENTIFIER, a, null) on line 1
-TOKEN(EQUAL, =, null) on line 1
-TOKEN(NUMBER, 5, 5.0) on line 1
-TOKEN(SEMICOLON, ;, null) on line 1
-TOKEN(VAR, var, null) on line 2
-TOKEN(IDENTIFIER, b, null) on line 2
-TOKEN(EQUAL, =, null) on line 2
-TOKEN(LEFT_BRACE, {, null) on line 2
-TOKEN(TRUE, true, null) on line 2
-TOKEN(RIGHT_BRACE, }, null) on line 2
-TOKEN(SEMICOLON, ;, null) on line 2
-TOKEN(PRINT, print, null) on line 3
-TOKEN(LEFT_PAREN, (, null) on line 3
-TOKEN(STRING, "Hello", Hello) on line 3
-TOKEN(RIGHT_PAREN, ), null) on line 3
-TOKEN(SEMICOLON, ;, null) on line 3
-TOKEN(VAR, var, null) on line 4
-TOKEN(IDENTIFIER, b, null) on line 4
-TOKEN(EQUAL, =, null) on line 4
-TOKEN(IDENTIFIER, test, null) on line 4
-TOKEN(SEMICOLON, ;, null) on line 4
-TOKEN(VAR, var, null) on line 5
-TOKEN(IDENTIFIER, i, null) on line 5
-TOKEN(EQUAL, =, null) on line 5
-TOKEN(NUMBER, 3, 3.0) on line 5
-TOKEN(PLUS, +, null) on line 5
-TOKEN(NUMBER, 3, 3.0) on line 5
-TOKEN(SEMICOLON, ;, null) on line 5
-TOKEN(IDENTIFIER, test, null) on line 6
-TOKEN(LEFT_BRACKET, [, null) on line 6
-TOKEN(NUMBER, 2, 2.0) on line 6
-TOKEN(RIGHT_BRACKET, ], null) on line 6
-TOKEN(EOF, , null) on line 6
-```
-## Aktuelle Arbeit & Nächste Schritte
 
-Der **Scanner ist abgeschlossen und voll funktionsfähig**.  
-Aktuell beschäftige ich mich mit der **Vorbereitung auf die Parser-Implementierung** und vertiefe mein Verständnis der zugrunde liegenden Prinzipien.
 
 ---
 
-### Aktuell 
--Ich habe mit der Implementierung des Parsers angefangen und arbeite jetzt an der  Implementierung von die verschieden Parserteile.  
-- 
+### 1. Scanner – Ausgabe
+
+**Ausgabe:**  
+Korrekte Token-Liste für Variablen, Zahlen, Operatoren, Strings, Keywords und EOF.
+
+> **Status:** Scanner vollständig implementiert und getestet.
+
+---
+
+### 2. Parser
+
+**Aktueller Stand:**  
+- Parser-Kombinator erfolgreich implementiert  
+- Verwendung eines gemeinsamen Interfaces zur Lösung von Cast-Problemen  
+- Unterstützung für generische Parsing-Strukturen  
+- Parser vorbereitet für die AST-Erzeugung
+
+> **Status:** Implementierung läuft; grundlegende Strukturen fertig, Arbeit an spezifischen Parser-Regeln.
+
+---
+
+### 3. Virtuelle Maschine & Assembler
+
+**VM/Assembler-Funktionen:**  
+- Virtuelle Maschine funktionsfähig  
+- Assembler erzeugt Logs und Bytecode  
+- Log-Funktionen bereits durch Dozenten teilweise implementiert  
+- Compiler erzeugt Assembler-Code, der in Bytecode umgewandelt wird
+
+> **Status:** Grundlegende VM- und Assembler-Funktionalität abgeschlossen.
+
+---
+
+## Nächste Schritte
+1. Fertigstellung des Parsers und Integration mit Scanner  
+2. AST-Generierung und Validierung  
+3. Verbindung Compiler → Assembler → VM  
+4. Erweiterte Fehlerbehandlung im Compiler  
+5. Testen der kompletten Pipeline: Lox-Quellcode → Bytecode → Ausführung in VM
+
 ---
 
 *Stand: 8. November 2025*  
+Der Compiler befindet sich aktuell in der **Compiler-Bauphase**. Scanner und VM/Assembler sind einsatzbereit; der Fokus liegt derzeit auf der **Parser-Implementierung** und der Integration aller Komponenten.
