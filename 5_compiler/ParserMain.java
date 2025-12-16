@@ -926,7 +926,7 @@ public class ParserMain {
             return prog.declarations();
         } else {
             System.err.println("Parsing Error: " );
-            return List.of(); // leere Liste statt null
+            return List.of(); 
     }
 }
 

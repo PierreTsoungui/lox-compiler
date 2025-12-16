@@ -114,7 +114,20 @@ public class Compiler {
                 }
     
             }
+            case Expr.Super sp->{
+                String methode =sp.method().lexem();
+                code.add("OP_GET_SUPER " + methode );
+            }
+            case Expr.Call call->{
+                 if (call.callee() instanceof Expr.Super sp) {
+                    int argCount = call.arguments().size();
+                    code.add("OP_SUPER_INVOKE " + sp.method().lexem() + " " + argCount);
+                 }
+            }
+            
+            case Expr.Get get ->{
 
+            }
 
             default -> throw new RuntimeException("Unknown expression type: " + expr);
         }
