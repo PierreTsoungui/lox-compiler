@@ -764,27 +764,127 @@ void runScript(List<Op> code) {
     }
 
     //--- High Level DSL API ---
-    
     public SmartAssembler const_(Val val) { emit(new Op.Const(val)); return this; }
     public SmartAssembler add() { emit(new Op.Add()); return this; }
     public SmartAssembler print() { emit(new Op.Print()); return this; }
     public SmartAssembler pop() { emit(new Op.Pop()); return this; }
     public SmartAssembler ret() { emit(new Op.Return()); return this; }
 
-    // Variablen-Deklaration (Intelligent!)
-    public SmartAssembler var(String name) {
-        CompilerState current = compilers.peek();
-        if (current.scopeDepth > 0) {
-            // Lokal: Merke Slot-Zuordnung
-            current.addLocal(name);
-            // In Lox Bytecode wird var mit Initializer gemacht -> SET_LOCAL fehlt hier implizit, 
-            // wir nehmen an, der Wert liegt schon auf dem Stack (durch const_ etc.)
+    // Literale
+    public SmartAssembler nil() { emit(new Op.Nil()); return this; }
+    public SmartAssembler true_() { emit(new Op.True()); return this; }
+    public SmartAssembler false_() { emit(new Op.False()); return this; }
+    
+    // Logik
+    public SmartAssembler eq() { emit(new Op.Equal()); return this; }
+    public SmartAssembler not() { emit(new Op.Not()); return this; }
+
+        // --- Jump / Branch Helpers ---
+    public int emitJumpIfFalse() {
+        emit(new Op.JumpIfFalse(0)); // Platzhalter
+        return compilers.peek().code.size() - 1; // Position merken
+    }
+
+    public int emitJump() {
+        emit(new Op.Jump(0)); // Platzhalter
+      return compilers.peek().code.size() - 1; // Position merken
+    }
+
+    public void patchJump(int pos) {
+        int offset = compilers.peek().code.size() - pos - 1;
+         Op old = compilers.peek().code.get(pos);
+        if (old instanceof Op.JumpIfFalse) {
+            compilers.peek().code.set(pos, new Op.JumpIfFalse(offset));
+        } else if (old instanceof Op.Jump) {
+            compilers.peek().code.set(pos, new Op.Jump(offset));
         } else {
-            // Global
-            emit(new Op.DefGlobal(name));
+            throw new RuntimeException("patchJump auf falsche Op-Code-Position!");
         }
+    }
+      
+    // If-Else
+    public SmartAssembler ifThenElse(Consumer<SmartAssembler> condition,
+                                 Consumer<SmartAssembler> thenBranch,
+                                 Consumer<SmartAssembler> elseBranch) {
+            // 1. Bedingung auswerten
+            condition.accept(this);
+
+            // 2. JumpIfFalse platzieren
+            int jumpToElse = emitJumpIfFalse();
+
+            // 3. Then-Branch
+            thenBranch.accept(this);
+
+            // 4. Jump über Else
+            int jumpOverElse = emitJump();
+
+            // 5. Patch JumpIfFalse zum Else
+            patchJump(jumpToElse);
+
+            // 6. Else-Branch, falls vorhanden
+            if (elseBranch != null) {
+                elseBranch.accept(this);
+             }
+
+            // 7. Patch Jump über Else zum Ende
+            patchJump(jumpOverElse);
+
         return this;
     }
+
+        // Logical AND
+    public SmartAssembler and(Consumer<SmartAssembler> left,
+                          Consumer<SmartAssembler> right) {
+         left.accept(this);
+        int jump = emitJumpIfFalse(); // short-circuit
+        right.accept(this);
+        patchJump(jump);
+        return this;
+    }
+
+        // Logical OR
+    public SmartAssembler or(Consumer<SmartAssembler> left, Consumer<SmartAssembler> right) {
+        left.accept(this);                  // linken Ausdruck auswerten
+        int jumpIfTrue = emitJumpIfFalse(); // invertiert: "wenn false, springe weiter"
+    
+        int jumpOverRight = emitJump();    // über rechten Ausdruck springen
+
+        patchJump(jumpIfTrue);             // linke false springt hier zum rechten Ausdruck
+
+        right.accept(this);                // rechten Ausdruck auswerten
+
+         patchJump(jumpOverRight);          // danach über den rechten Ausdruck springen
+
+         return this;
+    }
+
+
+    public SmartAssembler var(String name) {
+        CompilerState current = compilers.peek();
+
+        if (current.scopeDepth > 0) {
+            // Lokale Variable prüfen auf Duplicate innerhalb des Blocks
+            for (Local local : current.locals) {
+                 if (local.depth == current.scopeDepth && local.name.equals(name)) {
+                    throw new RuntimeException(
+                    "Lokale Variable '" + name + "' wurde im gleichen Scope schon deklariert."
+                    );
+                }
+            }
+            current.addLocal(name);
+            int slot = current.locals.size() - 1;
+            emit(new Op.SetLocal(slot));
+        } else {
+            // Global: einfach DefGlobal + SetGlobal
+            emit(new Op.DefGlobal(name));   // Erstmal definieren (VM merkt sich Slot)
+            emit(new Op.SetGlobal(name));   // Wert setzen
+        }
+
+        return this;
+    }
+
+
+
 
     public SmartAssembler get(String name) {
         namedVariable(name, true);
@@ -982,18 +1082,92 @@ void runScript(List<Op> code) {
 
 
    static void test1() {
+    
     SmartAssembler a = new SmartAssembler();
 
     CompiledFunction fn = a
-        .const_(new Val.Num(2))  // legt 2 auf den Stack
-        .var("x")                // erzeugt Variable x (lokal/global)
-        .get("x")                // lädt x wieder auf den Stack
-        .print()                 // print
+        .scope(s -> {                  // Neuer Block / Scope
+            s.const_(new Val.Num(1))
+            .var("x");                // Erste lokale Deklaration → ok
+            s.const_(new Val.Num(2))
+            .var("x");                // Zweite lokale Deklaration im gleichen Scope → Fehler!
+        })
+        .compile();
+    }
+
+    static void test2(){
+         SmartAssembler a = new SmartAssembler();
+        CompiledFunction fnNested = a
+            .scope(s -> {
+                s.const_(new Val.Num(5))
+                 .var("y");          // äußere lokale
+                s.scope(s2 -> {
+                    s2.const_(new Val.Num(6))
+                       .var("y");       // innere lokale, verschattet äußere → erlaubt
+                });
+            })
+            .compile();
+
+
+        for(Op op: fnNested.code()){
+            System.out.println(op);
+        }
+    }
+
+
+    static void testIfElse() {
+         SmartAssembler a = new SmartAssembler();
+
+        CompiledFunction fn = a
+            .const_(new Val.Bool(true))        // Bedingung
+            .scope(s -> {
+            int jumpFalsePos = s.emitJumpIfFalse();
+            
+            s.const_(new Val.Num(1))       // "then" Block
+            .print();
+
+            int jumpEndPos = s.emitJump();
+            s.patchJump(jumpFalsePos);     // "else" Start
+
+            s.const_(new Val.Num(2))       // "else" Block
+             .print();
+
+            s.patchJump(jumpEndPos);       // Ende des if/else
+        })
         .compile();
 
-    // Bytecode ausgeben
-    for (Op op : fn.code()) {
-        System.out.println(op);
+        // Bytecode ausgeben
+        for (Op op : fn.code()) {
+         System.out.println(op);
+        }
     }
-}
+
+    static void testOr() {
+        SmartAssembler a = new SmartAssembler();
+
+        CompiledFunction fn = a.or(
+            s -> s.const_(new Val.Bool(false)), // linker Ausdruck
+            s -> s.const_(new Val.Bool(true))   // rechter Ausdruck
+            ).print().compile();
+
+        // Bytecode ausgeben
+        for (Op op : fn.code()) {
+            System.out.println(op);
+         } 
+    }
+    static void testAnd() {
+        SmartAssembler a = new SmartAssembler();
+
+        CompiledFunction fn = a.and(
+        s -> s.const_(new Val.Bool(true)),  // linker Ausdruck
+        s -> s.const_(new Val.Bool(false))  // rechter Ausdruck
+        ).print().compile();
+
+        // Bytecode ausgeben
+        for (Op op : fn.code()) {
+             System.out.println(op);
+        }
+    }
+
+    
  }
