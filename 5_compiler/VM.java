@@ -752,136 +752,248 @@ void runScript(List<Op> code) {
     CompiledFunction func = new CompiledFunction("script", 0, code);
     new VM().interpret(func);
 }
-/**
- * Assembler für Lox-Bytecode (Op-basierte VM)
- *
- * Wandelt eine Textdarstellung von Opcodes mit Labels
- * in eine CompiledFunction (List<Op>) um.
- */
-class Assembler {
 
-    //Hauptmethode: assemble ---
-    public CompiledFunction assemble(String source) {
-        List<String> lines = preprocess(source);          
-        Map<String, Integer> labels = collectLabels(lines); 
-        List<Op> code = generateOps(lines, labels);  
-        return new CompiledFunction("<script>", 0, code);
+// === 3. Der Smart Assembler (Compiler) ===
+ class SmartAssembler {
+    // Compiler State Stack (für verschachtelte Funktionen)
+    private final Deque<CompilerState> compilers = new ArrayDeque<>();
+    
+    public SmartAssembler() {
+        // Start mit global/script Compiler
+        compilers.push(new CompilerState(null, FunctionType.SCRIPT));
     }
 
-    // --- Schritt 1: Lines vorbereiten ---
-    private List<String> preprocess(String source) {
-        return source.lines()
-                .map(String::trim)
-                .filter(l -> !l.isEmpty() && !l.startsWith("//"))
-                .collect(Collectors.toList());
-    }
+    //--- High Level DSL API ---
+    
+    public SmartAssembler const_(Val val) { emit(new Op.Const(val)); return this; }
+    public SmartAssembler add() { emit(new Op.Add()); return this; }
+    public SmartAssembler print() { emit(new Op.Print()); return this; }
+    public SmartAssembler pop() { emit(new Op.Pop()); return this; }
+    public SmartAssembler ret() { emit(new Op.Return()); return this; }
 
-    // --- Schritt 2: Labels sammeln ---
-    private Map<String, Integer> collectLabels(List<String> lines) {
-        Map<String, Integer> labels = new HashMap<>();
-        int ip = 0;
-        for (String line : lines) {
-            if (line.endsWith(":")) {
-                String label = line.substring(0, line.length() - 1);
-                labels.put(label, ip);
-            } else {
-                ip++;
-            }
+    // Variablen-Deklaration (Intelligent!)
+    public SmartAssembler var(String name) {
+        CompilerState current = compilers.peek();
+        if (current.scopeDepth > 0) {
+            // Lokal: Merke Slot-Zuordnung
+            current.addLocal(name);
+            // In Lox Bytecode wird var mit Initializer gemacht -> SET_LOCAL fehlt hier implizit, 
+            // wir nehmen an, der Wert liegt schon auf dem Stack (durch const_ etc.)
+        } else {
+            // Global
+            emit(new Op.DefGlobal(name));
         }
-        return labels;
+        return this;
     }
 
-    // --- Schritt 3: Ops erzeugen ---
-    private List<Op> generateOps(List<String> lines, Map<String, Integer> labels) {
+    public SmartAssembler get(String name) {
+        namedVariable(name, true);
+        return this;
+    }
+    
+    public SmartAssembler set(String name) {
+        namedVariable(name, false);
+        return this;
+    }
+
+    // Block Scopes
+    public SmartAssembler scope(Consumer<SmartAssembler> block) {
+        beginScope();
+        block.accept(this);
+        endScope();
+        return this;
+    }
+
+    // Funktionen & Closures
+    public SmartAssembler fun(String name, int arity, Consumer<SmartAssembler> body) {
+        // 1. Funktion im aktuellen Scope deklarieren
+        var(name); 
+        
+        // 2. Neuen Compiler starten
+        CompilerState current = compilers.peek();
+        CompilerState fnCompiler = new CompilerState(current, FunctionType.FUNCTION);
+        fnCompiler.functionName = name;
+        fnCompiler.arity = arity;
+        
+        // Argumente als Locals registrieren (Slots 1..n)
+        // Slot 0 ist reserviert (für closure selbst oder this)
+        fnCompiler.addLocal(""); // Slot 0 reservieren
+        for(int i=0; i<arity; i++) fnCompiler.addLocal("arg" + i); // Dummy names
+        
+        compilers.push(fnCompiler);
+        
+        // 3. Body kompilieren
+        body.accept(this);
+        emit(new Op.Const(null)); // Implizit return nil
+        emit(new Op.Return());
+        
+        // 4. Compiler beenden & "CompiledFunction" bauen
+        compilers.pop();
+        CompiledFunction compiledFn = new CompiledFunction(name, arity, fnCompiler.code);
+        
+        // 5. CLOSURE OpCode im PARENT emitten
+        // Dieser OpCode enthält Instruktionen, wie die Upvalues zu fangen sind
+        current.code.add(new Op.Closure(compiledFn, fnCompiler.upvalues));
+        
+        return this;
+    }
+
+    // OOP
+    public SmartAssembler classDecl(String name, Consumer<SmartAssembler> body) {
+        emit(new Op.Class(name));
+        emit(new Op.DefGlobal(name)); // Klasse global machen
+        emit(new Op.GetGlobal(name)); // Klasse laden für Methoden-Definitionen
+        
+        // Im Class-Body werden Methoden definiert
+        body.accept(this);
+        
+        emit(new Op.Pop()); // Klasse vom Stack
+        return this;
+    }
+    
+    public SmartAssembler method(String name, int arity, Consumer<SmartAssembler> body) {
+        // Ähnlich wie fun, aber FunctionType.METHOD und Slot 0 = "this"
+        CompilerState current = compilers.peek();
+        CompilerState methodCompiler = new CompilerState(current, FunctionType.METHOD);
+        methodCompiler.functionName = name;
+        methodCompiler.arity = arity;
+        methodCompiler.addLocal("this"); // Slot 0 ist this!
+        for(int i=0; i<arity; i++) methodCompiler.addLocal("arg"+i);
+        
+        compilers.push(methodCompiler);
+        body.accept(this);
+        emit(new Op.Const(null)); emit(new Op.Return());
+        compilers.pop();
+        
+        CompiledFunction fn = new CompiledFunction(name, arity, methodCompiler.code);
+        // Method OpCode: Binde Closure an Klasse (Stack Top)
+        current.code.add(new Op.Closure(fn, methodCompiler.upvalues));
+        emit(new Op.Method(name));
+        return this;
+    }
+    
+    public SmartAssembler call(int args) { emit(new Op.Call(args)); return this; }
+    public SmartAssembler getProp(String p) { emit(new Op.GetProp(p)); return this; }
+    public SmartAssembler setProp(String p) { emit(new Op.SetProp(p)); return this; }
+
+    // --- Internals & Resolution Logic ---
+
+    private void beginScope() { compilers.peek().scopeDepth++; }
+    
+    private void endScope() {
+        CompilerState c = compilers.peek();
+        c.scopeDepth--;
+        // Locals poppen & Upvalues schließen
+        while (!c.locals.isEmpty() && c.locals.getLast().depth > c.scopeDepth) {
+            emit(new Op.CloseUpval()); // Wichtig für Closures!
+            emit(new Op.Pop());        // Wichtig für Stack!
+            c.locals.removeLast();
+        }
+    }
+
+    private void emit(Op op) { compilers.peek().code.add(op); }
+
+    // Die Kern-Logik: Variable auflösen
+    private void namedVariable(String name, boolean canAssign) {
+        CompilerState current = compilers.peek();
+        
+        // 1. Versuch: Lokal
+        int arg = resolveLocal(current, name);
+        if (arg != -1) {
+            emit(canAssign ? new Op.SetLocal(arg) : new Op.GetLocal(arg));
+            return;
+        }
+        
+        // 2. Versuch: Upvalue (Rekursiv!)
+        arg = resolveUpvalue(current, name);
+        if (arg != -1) {
+            emit(canAssign ? new Op.SetUpval(arg) : new Op.GetUpval(arg));
+            return;
+        }
+
+        // 3. Fallback: Global
+        emit(canAssign ? new Op.SetGlobal(name) : new Op.GetGlobal(name));
+    }
+
+    private int resolveLocal(CompilerState c, String name) {
+        for (int i = c.locals.size() - 1; i >= 0; i--) {
+            if (c.locals.get(i).name.equals(name)) return i;
+        }
+        return -1;
+    }
+
+    // Das ist der kniffligste Teil von `clox` in Java nachgebaut
+    private int resolveUpvalue(CompilerState c, String name) {
+        if (c.enclosing == null) return -1;
+
+        // Suche im Parent (ist es dort lokal?)
+        int local = resolveLocal(c.enclosing, name);
+        if (local != -1) {
+            // Gefunden! Im Parent ist es lokal. Wir capturen es.
+            c.enclosing.locals.get(local).isCaptured = true;
+            return addUpvalue(c, local, true);
+        }
+
+        // Suche im Parent (ist es dort schon ein Upvalue?)
+        int upvalue = resolveUpvalue(c.enclosing, name);
+        if (upvalue != -1) {
+            return addUpvalue(c, upvalue, false);
+        }
+
+        return -1;
+    }
+
+    private int addUpvalue(CompilerState c, int index, boolean isLocal) {
+        // Upvalue Liste checken (Deduplication)
+        for (int i = 0; i < c.upvalues.size(); i++) {
+            UpvalueDescriptor up = c.upvalues.get(i);
+            if (up.index() == index && up.isLocal() == isLocal) return i;
+        }
+        c.upvalues.add(new UpvalueDescriptor(isLocal, index));
+        return c.upvalues.size() - 1;
+    }
+    
+    // --- Helper Classes ---
+    public CompiledFunction compile() { return new CompiledFunction("script", 0, compilers.peek().code); }
+
+    enum FunctionType { SCRIPT, FUNCTION, METHOD }
+    
+    static class Local {
+        String name; int depth; boolean isCaptured;
+        Local(String n, int d) { name=n; depth=d; }
+    }
+
+    static class CompilerState {
+        CompilerState enclosing;
         List<Op> code = new ArrayList<>();
-        int pc = 0;
+        List<Local> locals = new ArrayList<>();
+        List<UpvalueDescriptor> upvalues = new ArrayList<>(); // Die "Inputs" für das Closure
+        int scopeDepth = 0;
+        FunctionType type;
+        String functionName = "";
+        int arity = 0;
 
-        for (String line : lines) {
-            if (line.endsWith(":")) continue;
-
-            String[] parts = line.split("\\s+");
-            String op = parts[0];
-
-            switch (op) {
-                // Konstanten & Literale
-                case "OP_CONSTANT" -> code.add(new Op.Const(new Val.Num(Double.parseDouble(parts[1]))));
-                case "OP_NIL" -> code.add(new Op.Nil());
-                case "OP_TRUE" -> code.add(new Op.True());
-                case "OP_FALSE" -> code.add(new Op.False());
-
-                // Arithmetik
-                case "OP_ADD" -> code.add(new Op.Add());
-                case "OP_SUBTRACT" -> code.add(new Op.Sub());
-                case "OP_MULTIPLY" -> code.add(new Op.Mul());
-                case "OP_DIVIDE" -> code.add(new Op.Div());
-                case "OP_NEGATE" -> code.add(new Op.Neg());
-
-                // Vergleich & Logik
-                case "OP_EQUAL" -> code.add(new Op.Equal());
-                case "OP_GREATER" -> code.add(new Op.Greater());
-                case "OP_LESS" -> code.add(new Op.Less());
-                case "OP_NOT" -> code.add(new Op.Not());
-
-                // Stack & Kontrolle
-                case "OP_POP" -> code.add(new Op.Pop());
-                case "OP_PRINT" -> code.add(new Op.Print());
-                case "OP_RETURN" -> code.add(new Op.Return());
-
-                // Variablen
-                case "OP_DEFINE_GLOBAL" -> code.add(new Op.DefGlobal(parts[1]));
-                case "OP_GET_GLOBAL" -> code.add(new Op.GetGlobal(parts[1]));
-                case "OP_SET_GLOBAL" -> code.add(new Op.SetGlobal(parts[1]));
-                case "OP_GET_LOCAL" -> code.add(new Op.GetLocal(Integer.parseInt(parts[1])));
-                case "OP_SET_LOCAL" -> code.add(new Op.SetLocal(Integer.parseInt(parts[1])));
-
-                // Flow
-                case "OP_JUMP" -> code.add(new Op.Jump(labels.get(parts[1]) - pc - 1));
-                case "OP_JUMP_IF_FALSE" -> code.add(new Op.JumpIfFalse(labels.get(parts[1]) - pc - 1));
-                case "OP_LOOP" -> code.add(new Op.Loop(pc - labels.get(parts[1]) + 1));
-
-                // OOP
-                case "OP_CLASS" -> code.add(new Op.Class(parts[1]));
-                case "OP_METHOD" -> code.add(new Op.Method(parts[1]));
-                case "OP_INHERIT" -> code.add(new Op.Inherit());
-                case "OP_GET_PROPERTY" -> code.add(new Op.GetProp(parts[1]));
-                case "OP_SET_PROPERTY" -> code.add(new Op.SetProp(parts[1]));
-                case "OP_INVOKE" -> code.add(new Op.Invoke(parts[1], Integer.parseInt(parts[2])));
-                case "OP_SUPER_INVOKE" -> code.add(new Op.SuperInvoke(parts[1], Integer.parseInt(parts[2])));
-                case "OP_GET_SUPER" -> code.add(new Op.GetSuper(parts[1]));
-
-                default -> throw new RuntimeException("Unknown opcode: " + op);
-            }
-            pc++;
+        CompilerState(CompilerState enc, FunctionType t) { enclosing = enc; type = t; }
+        
+        void addLocal(String name) {
+            locals.add(new Local(name, scopeDepth));
         }
-
-        return code;
     }
 
 
+   static void test1() {
+    SmartAssembler a = new SmartAssembler();
 
-    /**
-     * Mini-Test für JShell / Debug
-     */
-    // --- Testmethode ---
-    public void testAssembler() {
-        String program = """
-            OP_CONSTANT 1
-            OP_CONSTANT 2
-            OP_ADD
-            OP_PRINT
-        """;
+    CompiledFunction fn = a
+        .const_(new Val.Num(2))  // legt 2 auf den Stack
+        .var("x")                // erzeugt Variable x (lokal/global)
+        .get("x")                // lädt x wieder auf den Stack
+        .print()                 // print
+        .compile();
 
-        CompiledFunction fn = assemble(program);
-        new VM().interpret(fn); // Erwartet: 3
+    // Bytecode ausgeben
+    for (Op op : fn.code()) {
+        System.out.println(op);
     }
-
-    // Run a file with text code
-    void runAssembler( String file) throws IOException {
-        String program = Files.readString(Path.of(file));
-         CompiledFunction fn = assemble(program);
-         new VM().interpret(fn);
-
-    }
-
-
 }
+ }
