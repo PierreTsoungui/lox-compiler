@@ -981,17 +981,67 @@ void runScript(List<Op> code) {
     }
 
     // OOP
-    public SmartAssembler classDecl(String name, Consumer<SmartAssembler> body) {
+   public SmartAssembler classDecl(String name, Consumer<SmartAssembler> body) {
+         return classDecl(name, null, body);
+    }
+
+
+    public SmartAssembler classDecl(
+        String name,
+        String superClassName,
+        Consumer<SmartAssembler> body
+    ) 
+    {
+        // 1. Klasse erzeugen
         emit(new Op.Class(name));
-        emit(new Op.DefGlobal(name)); // Klasse global machen
-        emit(new Op.GetGlobal(name)); // Klasse laden für Methoden-Definitionen
-        
-        // Im Class-Body werden Methoden definiert
+
+        //2. Klasse global speichern
+        emit(new Op.DefGlobal(name));
+
+         // 3. Vererbung
+        if (superClassName != null) {
+             // Subclass laden
+            get(name);
+
+            // Superclass laden
+            get(superClassName);
+
+            // Methoden kopieren
+            emit(new Op.Inherit());
+         }
+
+        // 4. Klasse wieder auf den Stack (für Methoden)
+        emit(new Op.GetGlobal(name));
+
+        // 5. Scope für `super`
+        if (superClassName != null) {
+            beginScope();
+
+            // super als lokale Variable
+            get(superClassName);
+            var("super");
+        }
+
+         // 6. Methoden definieren
         body.accept(this);
-        
-        emit(new Op.Pop()); // Klasse vom Stack
+
+        // 7. super-Scope schließen
+        if (superClassName != null) {
+            endScope();
+        }
+
+        // 8. Klasse vom Stack entfernen
+         emit(new Op.Pop());
+
         return this;
     }
+    public SmartAssembler getSuper(String method) {
+        get("this");   // Receiver
+        get("super");  // Superklasse (Upvalue!)
+        emit(new Op.GetSuper(method));
+        return this;
+    }
+
     
     public SmartAssembler method(String name, int arity, Consumer<SmartAssembler> body) {
         // Ähnlich wie fun, aber FunctionType.METHOD und Slot 0 = "this"
@@ -1245,6 +1295,27 @@ void runScript(List<Op> code) {
             System.out.println(op);
         }
     }
+    static void testClass(){
+          SmartAssembler a = new SmartAssembler();
+        // Ohne Vererbung
+        a.classDecl("Foo", c -> {
+            c.method("bar", 0, m -> {
+                m.const_(new Val.Str("Foo.bar")).print();
+            });
+        });
 
+        // Mit Vererbung
+       /*  a.classDecl("Bar", "Foo", c -> {
+        c.method("bar", 0, m -> {
+             m.getSuper("bar").call(0);
+        });
+    });*/
+
+     CompiledFunction fn = a.compile();
+     for (Op op : fn.code()) {
+            System.out.println(op);
+        }
+    
+    }
     
  }
