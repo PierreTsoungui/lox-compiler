@@ -779,6 +779,23 @@ void runScript(List<Op> code) {
     public SmartAssembler eq() { emit(new Op.Equal()); return this; }
     public SmartAssembler not() { emit(new Op.Not()); return this; }
 
+
+    // --- Arithmetik ---
+    public SmartAssembler sub() { emit(new Op.Sub()); return this; }
+    public SmartAssembler mul() { emit(new Op.Mul()); return this; }
+    public SmartAssembler div() { emit(new Op.Div()); return this; }
+
+    // --- Vergleich ---
+    public SmartAssembler gt() { emit(new Op.Greater()); return this; }  // >
+    public SmartAssembler lt() { emit(new Op.Less()); return this; }  // <
+ 
+    // für a>=b or a<=b
+    private SmartAssembler negated(Op op) {
+        emit(op);   // z. B. Less oder Greater
+        emit(new Op.Not());
+        return this;
+    }
+
         // --- Jump / Branch Helpers ---
     public int emitJumpIfFalse() {
         emit(new Op.JumpIfFalse(0)); // Platzhalter
@@ -802,6 +819,31 @@ void runScript(List<Op> code) {
         }
     }
       
+    // Anfang einer Schleife merken
+    public int emitLoopStart() {
+        return compilers.peek().code.size(); // Speicher Position als Start
+    }
+
+        // Sprung zurück zum Anfang der Schleife
+    public void emitLoop(int loopStart) {
+        int offset = compilers.peek().code.size() - loopStart + 1;
+        emit(new Op.Loop(offset));
+    }
+
+    // While
+    public SmartAssembler whileLoop(Consumer<SmartAssembler> condition, Consumer<SmartAssembler> body) {
+        int loopStart = emitLoopStart();         // Schleifenanfang merken
+
+        condition.accept(this);                  // Bedingung auswerten
+        int jumpExit = emitJumpIfFalse();       // Wenn false, Schleife verlassen
+
+        body.accept(this);                       // Schleifen-Body
+        emitLoop(loopStart);                     // Zurück zum Anfang springen
+
+        patchJump(jumpExit);                     // Exit-Sprung patchen
+        return this;
+    }
+
     // If-Else
     public SmartAssembler ifThenElse(Consumer<SmartAssembler> condition,
                                  Consumer<SmartAssembler> thenBranch,
@@ -1166,6 +1208,41 @@ void runScript(List<Op> code) {
         // Bytecode ausgeben
         for (Op op : fn.code()) {
              System.out.println(op);
+        }
+    }
+
+    static void testWhile() {
+        SmartAssembler a = new SmartAssembler();
+
+        // while (i < 3) { print(i); i = i + 1; }
+        a.const_(new Val.Num(0))       // i = 0
+        .var("i");
+
+        int loopStart = a.compilers.peek().code.size(); // Anfang der Schleife
+
+        // Bedingung: i < 3
+        a.get("i")
+        .const_(new Val.Num(3))
+        .lt();                        // i < 3
+        int exitJump = a.emitJumpIfFalse(); // Wenn false, springe nach Schleife
+
+        // Schleifen-Körper
+        a.get("i")
+         .print();                     // print(i)
+        a.get("i")
+        .const_(new Val.Num(1))
+        .add()                        // i + 1
+        .set("i");                    // i = i + 1
+
+        a.emitLoop(loopStart);          // Springe zurück zum Schleifenanfang
+
+        a.patchJump(exitJump);          // Patch für Ende der Schleife
+
+        CompiledFunction fn = a.compile();
+
+        // Bytecode ausgeben
+        for (Op op : fn.code()) {
+            System.out.println(op);
         }
     }
 
