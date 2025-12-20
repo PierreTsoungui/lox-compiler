@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.HashSet;
+
 // === Der Instruction Set (High-Level Bytecode) ===
 // Die VM führt nur diese Records aus. Sie sind "dumm".
 sealed interface Op {
@@ -757,7 +760,8 @@ void runScript(List<Op> code) {
  class SmartAssembler {
     // Compiler State Stack (für verschachtelte Funktionen)
     private final Deque<CompilerState> compilers = new ArrayDeque<>();
-    
+    private final Set<String> globals = new HashSet<>();
+
     public SmartAssembler() {
         // Start mit global/script Compiler
         compilers.push(new CompilerState(null, FunctionType.SCRIPT));
@@ -769,34 +773,68 @@ void runScript(List<Op> code) {
     public SmartAssembler print() { emit(new Op.Print()); return this; }
     public SmartAssembler pop() { emit(new Op.Pop()); return this; }
     public SmartAssembler ret() { emit(new Op.Return()); return this; }
-
     // Literale
     public SmartAssembler nil() { emit(new Op.Nil()); return this; }
     public SmartAssembler true_() { emit(new Op.True()); return this; }
     public SmartAssembler false_() { emit(new Op.False()); return this; }
-    
     // Logik
     public SmartAssembler eq() { emit(new Op.Equal()); return this; }
     public SmartAssembler not() { emit(new Op.Not()); return this; }
-
-
     // --- Arithmetik ---
     public SmartAssembler sub() { emit(new Op.Sub()); return this; }
     public SmartAssembler mul() { emit(new Op.Mul()); return this; }
     public SmartAssembler div() { emit(new Op.Div()); return this; }
-
     // --- Vergleich ---
     public SmartAssembler gt() { emit(new Op.Greater()); return this; }  // >
     public SmartAssembler lt() { emit(new Op.Less()); return this; }  // <
  
-    // für a>=b or a<=b
-    private SmartAssembler negated(Op op) {
-        emit(op);   // z. B. Less oder Greater
+        // !=
+    public SmartAssembler ne() {
+        emit(new Op.Equal());
         emit(new Op.Not());
         return this;
     }
 
-        // --- Jump / Branch Helpers ---
+     // >=  → !(a < b)
+    public SmartAssembler ge() {
+        emit(new Op.Less());
+         emit(new Op.Not());
+        return this;
+    }
+        // <=  → !(a > b)
+    public SmartAssembler le() {
+        emit(new Op.Greater());
+        emit(new Op.Not());
+        return this;
+    }
+
+        // Logical AND
+    public SmartAssembler and(Consumer<SmartAssembler> left,
+                          Consumer<SmartAssembler> right) {
+         left.accept(this);
+        int jump = emitJumpIfFalse(); // short-circuit
+        right.accept(this);
+        patchJump(jump);
+        return this;
+    }
+
+        // Logical OR
+    public SmartAssembler or(Consumer<SmartAssembler> left, Consumer<SmartAssembler> right) {
+        left.accept(this);                  // linken Ausdruck auswerten
+        int jumpIfTrue = emitJumpIfFalse(); // invertiert: "wenn false, springe weiter"
+    
+        int jumpOverRight = emitJump();    // über rechten Ausdruck springen
+
+        patchJump(jumpIfTrue);             // linke false springt hier zum rechten Ausdruck
+
+        right.accept(this);                // rechten Ausdruck auswerten
+
+         patchJump(jumpOverRight);          // danach über den rechten Ausdruck springen
+
+         return this;
+    }
+
+      // --- Jump / Branch Helpers ---
     public int emitJumpIfFalse() {
         emit(new Op.JumpIfFalse(0)); // Platzhalter
         return compilers.peek().code.size() - 1; // Position merken
@@ -874,32 +912,7 @@ void runScript(List<Op> code) {
         return this;
     }
 
-        // Logical AND
-    public SmartAssembler and(Consumer<SmartAssembler> left,
-                          Consumer<SmartAssembler> right) {
-         left.accept(this);
-        int jump = emitJumpIfFalse(); // short-circuit
-        right.accept(this);
-        patchJump(jump);
-        return this;
-    }
-
-        // Logical OR
-    public SmartAssembler or(Consumer<SmartAssembler> left, Consumer<SmartAssembler> right) {
-        left.accept(this);                  // linken Ausdruck auswerten
-        int jumpIfTrue = emitJumpIfFalse(); // invertiert: "wenn false, springe weiter"
     
-        int jumpOverRight = emitJump();    // über rechten Ausdruck springen
-
-        patchJump(jumpIfTrue);             // linke false springt hier zum rechten Ausdruck
-
-        right.accept(this);                // rechten Ausdruck auswerten
-
-         patchJump(jumpOverRight);          // danach über den rechten Ausdruck springen
-
-         return this;
-    }
-
 
     public SmartAssembler var(String name) {
         CompilerState current = compilers.peek();
@@ -918,6 +931,7 @@ void runScript(List<Op> code) {
             emit(new Op.SetLocal(slot));
         } else {
             // Global: einfach DefGlobal + SetGlobal
+            globals.add(name);
             emit(new Op.DefGlobal(name));   // Erstmal definieren (VM merkt sich Slot)
             emit(new Op.SetGlobal(name));   // Wert setzen
         }
@@ -925,16 +939,13 @@ void runScript(List<Op> code) {
         return this;
     }
 
-
-
-
     public SmartAssembler get(String name) {
-        namedVariable(name, true);
+        namedVariable(name, false);
         return this;
     }
     
     public SmartAssembler set(String name) {
-        namedVariable(name, false);
+        namedVariable(name, true);
         return this;
     }
 
@@ -1102,7 +1113,10 @@ void runScript(List<Op> code) {
             emit(canAssign ? new Op.SetUpval(arg) : new Op.GetUpval(arg));
             return;
         }
-
+          boolean existsGlobally = globals.contains(name); // du musst globale Variablen tracken
+        if (!canAssign && !existsGlobally) {
+            throw new RuntimeException("Variable '" + name + "' nicht definiert!");
+         }
         // 3. Fallback: Global
         emit(canAssign ? new Op.SetGlobal(name) : new Op.GetGlobal(name));
     }
@@ -1172,150 +1186,123 @@ void runScript(List<Op> code) {
         }
     }
 
-
-   static void test1() {
-    
-    SmartAssembler a = new SmartAssembler();
-
-    CompiledFunction fn = a
-        .scope(s -> {                  // Neuer Block / Scope
-            s.const_(new Val.Num(1))
-            .var("x");                // Erste lokale Deklaration → ok
-            s.const_(new Val.Num(2))
-            .var("x");                // Zweite lokale Deklaration im gleichen Scope → Fehler!
-        })
-        .compile();
+// --- Hilfsmethoden für Tests ---
+   static void runTest(String testName, Consumer<SmartAssembler> build) {
+        System.out.println("=== Test: " + testName + " ===");
+        SmartAssembler a = new SmartAssembler();
+        CompiledFunction fn = buildAsm(a, build);
+        for(Op op: fn.code()){
+            System.out.println(op);
+        }
+        System.out.println();
     }
 
-    static void test2(){
-         SmartAssembler a = new SmartAssembler();
-        CompiledFunction fnNested = a
-            .scope(s -> {
-                s.const_(new Val.Num(5))
-                 .var("y");          // äußere lokale
-                s.scope(s2 -> {
-                    s2.const_(new Val.Num(6))
-                       .var("y");       // innere lokale, verschattet äußere → erlaubt
-                });
-            })
-            .compile();
+    static CompiledFunction buildAsm(SmartAssembler a, Consumer<SmartAssembler> build) {
+         build.accept(a);
+        return a.compile();
+    }
 
-
-        for(Op op: fnNested.code()){
+    static void printBytecode(CompiledFunction fn) {
+        for (Op op : fn.code()) {
             System.out.println(op);
         }
     }
 
+    // ---Testfälle ---
+
+    static void test1() {
+     runTest("test1", a -> {
+        a.scope(s -> {
+            s.const_(new Val.Num(1)).var("x");
+            s.const_(new Val.Num(2)).var("x"); // sollte Fehler auslösen
+        });
+    });
+    }
+
+    static void test2() {
+        runTest("test2", a -> {
+            a.scope(s -> {
+                s.const_(new Val.Num(5)).var("y");
+                s.scope(s2 -> {
+                    s2.const_(new Val.Num(6)).var("y"); // erlaubt
+                });
+            });
+        });
+    }
 
     static void testIfElse() {
-         SmartAssembler a = new SmartAssembler();
-
-        CompiledFunction fn = a
-            .const_(new Val.Bool(true))        // Bedingung
+         runTest("testIfElse", a -> {
+            a.const_(new Val.Bool(true))
             .scope(s -> {
-            int jumpFalsePos = s.emitJumpIfFalse();
-            
-            s.const_(new Val.Num(1))       // "then" Block
-            .print();
-
-            int jumpEndPos = s.emitJump();
-            s.patchJump(jumpFalsePos);     // "else" Start
-
-            s.const_(new Val.Num(2))       // "else" Block
-             .print();
-
-            s.patchJump(jumpEndPos);       // Ende des if/else
-        })
-        .compile();
-
-        // Bytecode ausgeben
-        for (Op op : fn.code()) {
-         System.out.println(op);
-        }
+                int jumpFalsePos = s.emitJumpIfFalse();
+                s.const_(new Val.Num(1)).print();
+                int jumpEndPos = s.emitJump();
+                s.patchJump(jumpFalsePos);
+                 s.const_(new Val.Num(2)).print();
+                s.patchJump(jumpEndPos);
+            });
+        });
     }
 
     static void testOr() {
-        SmartAssembler a = new SmartAssembler();
-
-        CompiledFunction fn = a.or(
-            s -> s.const_(new Val.Bool(false)), // linker Ausdruck
-            s -> s.const_(new Val.Bool(true))   // rechter Ausdruck
-            ).print().compile();
-
-        // Bytecode ausgeben
-        for (Op op : fn.code()) {
-            System.out.println(op);
-         } 
+        runTest("testOr", a -> {
+            a.or(
+                s -> s.const_(new Val.Bool(false)),
+                s -> s.const_(new Val.Bool(true))
+            ).print();
+        });
     }
+
     static void testAnd() {
-        SmartAssembler a = new SmartAssembler();
-
-        CompiledFunction fn = a.and(
-        s -> s.const_(new Val.Bool(true)),  // linker Ausdruck
-        s -> s.const_(new Val.Bool(false))  // rechter Ausdruck
-        ).print().compile();
-
-        // Bytecode ausgeben
-        for (Op op : fn.code()) {
-             System.out.println(op);
-        }
+        runTest("testAnd", a -> {
+            a.and(
+                s -> s.const_(new Val.Bool(true)),
+                 s -> s.const_(new Val.Bool(false))
+            ).print();
+        });
     }
 
     static void testWhile() {
-        SmartAssembler a = new SmartAssembler();
-
-        // while (i < 3) { print(i); i = i + 1; }
-        a.const_(new Val.Num(0))       // i = 0
-        .var("i");
-
-        int loopStart = a.compilers.peek().code.size(); // Anfang der Schleife
-
-        // Bedingung: i < 3
-        a.get("i")
-        .const_(new Val.Num(3))
-        .lt();                        // i < 3
-        int exitJump = a.emitJumpIfFalse(); // Wenn false, springe nach Schleife
-
-        // Schleifen-Körper
-        a.get("i")
-         .print();                     // print(i)
-        a.get("i")
-        .const_(new Val.Num(1))
-        .add()                        // i + 1
-        .set("i");                    // i = i + 1
-
-        a.emitLoop(loopStart);          // Springe zurück zum Schleifenanfang
-
-        a.patchJump(exitJump);          // Patch für Ende der Schleife
-
-        CompiledFunction fn = a.compile();
-
-        // Bytecode ausgeben
-        for (Op op : fn.code()) {
-            System.out.println(op);
-        }
+        runTest("testWhile", a -> {
+            a.const_(new Val.Num(0)).var("i");
+            int loopStart = a.compilers.peek().code.size();
+            a.get("i").const_(new Val.Num(3)).lt();
+            int exitJump = a.emitJumpIfFalse();
+            a.get("i").print();
+            a.get("i").const_(new Val.Num(1)).add().set("i");
+            a.emitLoop(loopStart);
+            a.patchJump(exitJump);
+        });
     }
-    static void testClass(){
-          SmartAssembler a = new SmartAssembler();
-        // Ohne Vererbung
-        a.classDecl("Foo", c -> {
-            c.method("bar", 0, m -> {
-                m.const_(new Val.Str("Foo.bar")).print();
+
+    static void testClass() {
+        runTest("testClass", a -> {
+            a.classDecl("Foo", c -> {
+                c.method("bar", 0, m -> {
+                    m.const_(new Val.Str("Foo.bar")).print();
+                });
             });
         });
-
-        // Mit Vererbung
-       /*  a.classDecl("Bar", "Foo", c -> {
-        c.method("bar", 0, m -> {
-             m.getSuper("bar").call(0);
-        });
-    });*/
-
-     CompiledFunction fn = a.compile();
-     for (Op op : fn.code()) {
-            System.out.println(op);
-        }
-    
     }
+
+    static void testOrShortCircuit() {
+        runTest("testOrShortCircuit", a -> {
+            a.or(
+                s -> s.true_(),
+                s -> s.const_(new Val.Str("BAD")).print() // darf NICHT ausgeführt werden
+            );
+        });
+    }
+
+   static void testVarSelfAssign() {
+    runTest("var a = a;", a -> {
+        // Lox: var a = a; 
+        // 1. Versuche RHS auszuwerten (a) → existiert noch nicht, sollte nil sein
+        a.get("a");        // greift auf 'a', das noch nicht existiert → sollte global oder nil
+        // 2. Deklariere Variable a und setze Wert
+        a.var("a");        
+    });
+}
+
     
  }
