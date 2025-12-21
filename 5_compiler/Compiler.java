@@ -943,7 +943,7 @@ class SmartAssembler {
             // Global: einfach DefGlobal + SetGlobal
             globals.add(name);
             emit(new Op.DefGlobal(name));   // Erstmal definieren (VM merkt sich Slot)
-            emit(new Op.SetGlobal(name));   // Wert setzen
+           //emit(new Op.SetGlobal(name));   // Wert setzen
         }
 
         return this;
@@ -1005,9 +1005,6 @@ class SmartAssembler {
             // In SmartAssembler.java - NUR DIESE METHODE BEHALTEN:
     public SmartAssembler fun(String name, List<String> paramNames, Consumer<SmartAssembler> body) {
         int arity = paramNames.size();
-         // 1. Funktion deklarieren
-        var(name);
-    
              // 2. Neuen Compiler starten
         CompilerState current = compilers.peek();
         CompilerState fnCompiler = new CompilerState(current, FunctionType.FUNCTION);
@@ -1036,7 +1033,8 @@ class SmartAssembler {
     
         // 6. Closure erstellen
         current.code.add(new Op.Closure(compiledFn, fnCompiler.upvalues));
-    
+        // DANN: Als globale Variable speichern 
+        var(name); 
         return this;
     }
 
@@ -1368,11 +1366,10 @@ public class Compiler {
         for (Stmt stmt : statements) {
             stmtToAsm(stmt);
         }
-
-        // Am Ende ein implizites return nil hinzufügen
+         
+        // Füge implizites return nil am Ende hinzu
         asm.nil();
         asm.ret();
-        
         return asm.compile();
     }
 
@@ -1460,27 +1457,9 @@ public class Compiler {
                 asm.classDecl(classDecl.name().lexem(), superClassName, a -> {
                     // Methoden definieren
                     for (Stmt.Function method : classDecl.methods()) {
-                        asm.method(method.name().lexem(), method.params().size(), m -> {
-                            m.scope(s -> {
-                                // 'this' wird automatisch von method() hinzugefügt
-                                // Parameter registrieren
-                                for (int i = 0; i < method.params().size(); i++) {
-                                    Token param = method.params().get(i);
-                                    s.const_(new Val.Nil()); // Platzhalter
-                                    s.var(param.lexem());
-                                }
-                                
-                                // Methodenkörper
-                                for (Stmt stmtBody : method.body()) {
-                                    stmtToAsm(stmtBody);
-                                }
-                            });
-                            
-                            // Implizites return
-                            m.nil();
-                            m.ret();
-                        });
-                    }
+                          stmtToAsm(method);
+                        };
+                    
                 });
             }
             
@@ -1809,59 +1788,46 @@ public class Compiler {
         vm.interpret(fn);
     }
     public static void testFunctionSimple() {
-    System.out.println("=== Test Function Simple (no print) ===");
-    Compiler compiler = new Compiler();
-    String source = """
-        fun add(a, b) {
-            return a + b;
+         System.out.println("=== Test Function Simple (no print) ===");
+         Compiler compiler = new Compiler();
+         String source = """
+            fun add(a, b) {
+                return a + b;
+            }
+             add(1, 2);  // Nur aufrufen, nicht drucken
+             """;
+    
+        CompiledFunction fn = compiler.compile(source);
+    
+        System.out.println("Bytecode:");
+        for (Op op : fn.code()) {
+             System.out.println(op);
         }
-        add(1, 2);  // Nur aufrufen, nicht drucken
-        """;
     
-    CompiledFunction fn = compiler.compile(source);
-    
-    System.out.println("Bytecode:");
-    for (Op op : fn.code()) {
-        System.out.println(op);
+        System.out.println("\n=== Execution ===");
+         VM vm = new VM();
+        vm.interpret(fn);
     }
+    public static void testFunctionReturn() {
+        System.out.println("=== Test Function Return ===");
+        Compiler compiler = new Compiler();
+        String source = """
+            fun test() {
+             return 42;
+            }
+             print test();
+            """;
+        
+        CompiledFunction fn = compiler.compile(source);
     
-    System.out.println("\n=== Execution ===");
-    VM vm = new VM();
-    vm.interpret(fn);
-}
-public static void testFunctionReturn() {
-    System.out.println("=== Test Function Return ===");
-    Compiler compiler = new Compiler();
-    String source = """
-        fun test() {
-            return 42;
+        System.out.println("Bytecode:");
+        for (Op op : fn.code()) {
+         System.out.println(op);
         }
-        test();
-        """;
     
-    CompiledFunction fn = compiler.compile(source);
-    
-    System.out.println("Bytecode:");
-    for (Op op : fn.code()) {
-        System.out.println(op);
+         System.out.println("\n=== Execution ===");
+        VM vm = new VM();
+        vm.interpret(fn);
     }
-    
-    System.out.println("\n=== Execution ===");
-    VM vm = new VM();
-    vm.interpret(fn);
-    
-}
 
-public static  void testParser(){
-     String source = """
-        fun test() {
-            return 42;
-        }
-        test();
-        """;
-  List<Stmt> st= ParserMain.parseProgram(source);
-  for(Stmt s: st){
-    System.out.println(s);
-  }
-}
 }
