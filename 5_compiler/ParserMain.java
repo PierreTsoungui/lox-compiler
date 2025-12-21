@@ -45,12 +45,12 @@ sealed interface Expr extends AstNode
     permits Expr.Assign, Expr.Binary, Expr.Call, Expr.Get, Expr.Set, Expr.Grouping,
             Expr.Literal, Expr.Logical, Expr.Super, Expr.This, Expr.Unary, Expr.Variable {
 
-    record Assign(Token name, Expr value) implements Expr {
+   public record Assign(Token name, Expr value) implements Expr {
         @Override public List<AstNode> children() { return List.of(value); }
         @Override public String label() { return "Assign"; }
     }
 
-    record Binary(Expr left, Token operator, Expr right) implements Expr {
+   public record Binary(Expr left, Token operator, Expr right) implements Expr {
         @Override public List<AstNode> children() { return List.of(left,right); }
         @Override public String label() { return "Binary:"+operator.lexem(); }
     }
@@ -436,7 +436,7 @@ public class ParserMain {
     Parser<Stmt> declaration() {
         return new Or<>(
             new Parser.Lazy<>(() -> classDecl()),
-             new Parser. Lazy<>(() -> funDecl()),
+            new Parser. Lazy<>(() -> funDecl()),
             new Parser.Lazy<>(() -> varDecl()),
             new Parser.Lazy<>(() -> statement())
         );
@@ -827,9 +827,11 @@ public class ParserMain {
             new Item(TokenType.RIGHT_PAREN)
         ).map(list -> {
          ListAstNode argsNode = (ListAstNode) list.nodes().get(1);
-         List<Expr> args = argsNode.nodes().stream()
-            .map(exp -> (Expr) exp)
-            .toList();
+        List<Expr> args = Optional.ofNullable(argsNode)
+                        .map(node -> node.nodes().stream()
+                        .map(exp -> (Expr) exp)
+                        .toList())
+                         .orElse(List.of());
          Token paren = ((TokenNode) list.nodes().get(2)).token(); // ')' Token
          return new Expr.Call(null, paren, args); // callee wird später gesetzt
          });
@@ -891,14 +893,20 @@ public class ParserMain {
             .map(list -> (T) list.nodes().get(1));
     }
     //arguments      → expression ( "," expression )* ;
-    Parser<ListAstNode> arguments() {
-    return parseExpression().flatMap(first ->
+   Parser<ListAstNode> arguments() {
+    return parseExpression().flatMap(firstArg -> 
         new Many<>(
             new And(new Item(TokenType.COMMA), parseExpression())
-                .map(list -> (Expr) list.nodes().get(1)) // List<Expr> zurückgeben!
-        )
+                .map(list -> (Expr) list.nodes().get(1))
+        ).map(restArgs -> {
+            // Kombiniere firstArg mit restArgs
+            List<AstNode> allArgs = new ArrayList<>();
+            allArgs.add(firstArg);
+            allArgs.addAll(restArgs.nodes());
+            return new ListAstNode(allArgs);
+        })
     );
-    }
+}
 
     /*Hilfemethode */
      // Kurze DOT-Methoden:
@@ -917,7 +925,7 @@ public class ParserMain {
             .toArray(Parser[]::new);
     }
     //Methode gibt eine liste for stmt nach dem Parsing
-    static List<Stmt> parseProgram(String source) {
+    public static List<Stmt> parseProgram(String source) {
         ParserMain parser = ParserMain.fromSource(source);
         Result<Stmt.Program> result = parser.program().parse(parser.tokens);
 
