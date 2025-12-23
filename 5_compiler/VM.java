@@ -757,7 +757,7 @@ void runScript(List<Op> code) {
 }
 
 // === 3. Der Smart Assembler (Compiler) ===
- class SmartAssembler {
+class SmartAssembler {
     // Compiler State Stack (für verschachtelte Funktionen)
     private final Deque<CompilerState> compilers = new ArrayDeque<>();
     private final Set<String> globals = new HashSet<>();
@@ -977,8 +977,11 @@ void runScript(List<Op> code) {
         
         // 3. Body kompilieren
         body.accept(this);
-        emit(new Op.Const(null)); // Implizit return nil
-        emit(new Op.Return());
+        // 4. Sicherstellen, dass die Funktion ein Return hat
+       if (!(compilers.peek().code.getLast() instanceof Op.Return)) {
+         emit(new Op.Nil());
+         emit(new Op.Return());
+      }
         
         // 4. Compiler beenden & "CompiledFunction" bauen
         compilers.pop();
