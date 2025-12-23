@@ -757,130 +757,616 @@ void runScript(List<Op> code) {
  * Wandelt eine Textdarstellung von Opcodes mit Labels
  * in eine CompiledFunction (List<Op>) um.
  */
-class Assembler {
 
-    //Hauptmethode: assemble ---
-    public CompiledFunction assemble(String source) {
-        List<String> lines = preprocess(source);          
-        Map<String, Integer> labels = collectLabels(lines); 
-        List<Op> code = generateOps(lines, labels);  
-        return new CompiledFunction("<script>", 0, code);
+// === 3. Der Smart Assembler (Compiler) ===
+class SmartAssembler {
+    // Compiler State Stack (für verschachtelte Funktionen)
+    private final Deque<CompilerState> compilers = new ArrayDeque<>();
+    private final Set<String> globals = new HashSet<>();
+
+    public SmartAssembler() {
+        // Start mit global/script Compiler
+        compilers.push(new CompilerState(null, FunctionType.SCRIPT));
     }
 
-    // --- Schritt 1: Lines vorbereiten ---
-    private List<String> preprocess(String source) {
-        return source.lines()
-                .map(String::trim)
-                .filter(l -> !l.isEmpty() && !l.startsWith("//"))
-                .collect(Collectors.toList());
+    //--- High Level DSL API ---
+    public SmartAssembler const_(Val val) { emit(new Op.Const(val)); return this; }
+    public SmartAssembler add() { emit(new Op.Add()); return this; }
+    public SmartAssembler print() { emit(new Op.Print()); return this; }
+    public SmartAssembler pop() { emit(new Op.Pop()); return this; }
+    public SmartAssembler ret() { emit(new Op.Return()); return this; }
+    // Literale
+    public SmartAssembler nil() { emit(new Op.Nil()); return this; }
+    public SmartAssembler true_() { emit(new Op.True()); return this; }
+    public SmartAssembler false_() { emit(new Op.False()); return this; }
+    // Logik
+    public SmartAssembler eq() { emit(new Op.Equal()); return this; }
+    public SmartAssembler not() { emit(new Op.Not()); return this; }
+    // --- Arithmetik ---
+    public SmartAssembler sub() { emit(new Op.Sub()); return this; }
+    public SmartAssembler mul() { emit(new Op.Mul()); return this; }
+    public SmartAssembler div() { emit(new Op.Div()); return this; }
+    // --- Vergleich ---
+    public SmartAssembler gt() { emit(new Op.Greater()); return this; }  // >
+    public SmartAssembler lt() { emit(new Op.Less()); return this; }  // <
+ 
+        // !=
+    public SmartAssembler ne() {
+        emit(new Op.Equal());
+        emit(new Op.Not());
+        return this;
     }
 
-    // --- Schritt 2: Labels sammeln ---
-    private Map<String, Integer> collectLabels(List<String> lines) {
-        Map<String, Integer> labels = new HashMap<>();
-        int ip = 0;
-        for (String line : lines) {
-            if (line.endsWith(":")) {
-                String label = line.substring(0, line.length() - 1);
-                labels.put(label, ip);
-            } else {
-                ip++;
-            }
+     // >=  → !(a < b)
+    public SmartAssembler ge() {
+        emit(new Op.Less());
+         emit(new Op.Not());
+        return this;
+    }
+        // <=  → !(a > b)
+    public SmartAssembler le() {
+        emit(new Op.Greater());
+        emit(new Op.Not());
+        return this;
+    }
+
+        // Logical AND
+    public SmartAssembler and(Consumer<SmartAssembler> left,
+                          Consumer<SmartAssembler> right) {
+         left.accept(this);
+        int jump = emitJumpIfFalse(); // short-circuit
+        right.accept(this);
+        patchJump(jump);
+        return this;
+    }
+
+        // Logical OR
+    public SmartAssembler or(Consumer<SmartAssembler> left, Consumer<SmartAssembler> right) {
+        left.accept(this);                  // linken Ausdruck auswerten
+        int jumpIfTrue = emitJumpIfFalse(); // invertiert: "wenn false, springe weiter"
+    
+        int jumpOverRight = emitJump();    // über rechten Ausdruck springen
+
+        patchJump(jumpIfTrue);             // linke false springt hier zum rechten Ausdruck
+
+        right.accept(this);                // rechten Ausdruck auswerten
+
+         patchJump(jumpOverRight);          // danach über den rechten Ausdruck springen
+
+         return this;
+    }
+
+      // --- Jump / Branch Helpers ---
+    public int emitJumpIfFalse() {
+        emit(new Op.JumpIfFalse(0)); // Platzhalter
+        return compilers.peek().code.size() - 1; // Position merken
+    }
+
+    public int emitJump() {
+        emit(new Op.Jump(0)); // Platzhalter
+      return compilers.peek().code.size() - 1; // Position merken
+    }
+
+    public void patchJump(int pos) {
+        int offset = compilers.peek().code.size() - pos - 1;
+         Op old = compilers.peek().code.get(pos);
+        if (old instanceof Op.JumpIfFalse) {
+            compilers.peek().code.set(pos, new Op.JumpIfFalse(offset));
+        } else if (old instanceof Op.Jump) {
+            compilers.peek().code.set(pos, new Op.Jump(offset));
+        } else {
+            throw new RuntimeException("patchJump auf falsche Op-Code-Position!");
         }
-        return labels;
+    }
+      
+    // Anfang einer Schleife merken
+    public int emitLoopStart() {
+        return compilers.peek().code.size(); // Speicher Position als Start
     }
 
-    // --- Schritt 3: Ops erzeugen ---
-    private List<Op> generateOps(List<String> lines, Map<String, Integer> labels) {
-        List<Op> code = new ArrayList<>();
-        int pc = 0;
+        // Sprung zurück zum Anfang der Schleife
+    public void emitLoop(int loopStart) {
+        int offset = compilers.peek().code.size() - loopStart + 1;
+        emit(new Op.Loop(offset));
+    }
 
-        for (String line : lines) {
-            if (line.endsWith(":")) continue;
+    // While
+    public SmartAssembler whileLoop(Consumer<SmartAssembler> condition, Consumer<SmartAssembler> body) {
+        int loopStart = emitLoopStart();         // Schleifenanfang merken
 
-            String[] parts = line.split("\\s+");
-            String op = parts[0];
+        condition.accept(this);                  // Bedingung auswerten
+        int jumpExit = emitJumpIfFalse();       // Wenn false, Schleife verlassen
 
-            switch (op) {
-                // Konstanten & Literale
-                case "OP_CONSTANT" -> code.add(new Op.Const(new Val.Num(Double.parseDouble(parts[1]))));
-                case "OP_NIL" -> code.add(new Op.Nil());
-                case "OP_TRUE" -> code.add(new Op.True());
-                case "OP_FALSE" -> code.add(new Op.False());
+        body.accept(this);                       // Schleifen-Body
+        emitLoop(loopStart);                     // Zurück zum Anfang springen
 
-                // Arithmetik
-                case "OP_ADD" -> code.add(new Op.Add());
-                case "OP_SUBTRACT" -> code.add(new Op.Sub());
-                case "OP_MULTIPLY" -> code.add(new Op.Mul());
-                case "OP_DIVIDE" -> code.add(new Op.Div());
-                case "OP_NEGATE" -> code.add(new Op.Neg());
+        patchJump(jumpExit);                     // Exit-Sprung patchen
+        return this;
+    }
 
-                // Vergleich & Logik
-                case "OP_EQUAL" -> code.add(new Op.Equal());
-                case "OP_GREATER" -> code.add(new Op.Greater());
-                case "OP_LESS" -> code.add(new Op.Less());
-                case "OP_NOT" -> code.add(new Op.Not());
+    // If-Else
+    public SmartAssembler ifThenElse(Consumer<SmartAssembler> condition,
+                                 Consumer<SmartAssembler> thenBranch,
+                                 Consumer<SmartAssembler> elseBranch) {
+            // 1. Bedingung auswerten
+            condition.accept(this);
 
-                // Stack & Kontrolle
-                case "OP_POP" -> code.add(new Op.Pop());
-                case "OP_PRINT" -> code.add(new Op.Print());
-                case "OP_RETURN" -> code.add(new Op.Return());
+            // 2. JumpIfFalse platzieren
+            int jumpToElse = emitJumpIfFalse();
 
-                // Variablen
-                case "OP_DEFINE_GLOBAL" -> code.add(new Op.DefGlobal(parts[1]));
-                case "OP_GET_GLOBAL" -> code.add(new Op.GetGlobal(parts[1]));
-                case "OP_SET_GLOBAL" -> code.add(new Op.SetGlobal(parts[1]));
-                case "OP_GET_LOCAL" -> code.add(new Op.GetLocal(Integer.parseInt(parts[1])));
-                case "OP_SET_LOCAL" -> code.add(new Op.SetLocal(Integer.parseInt(parts[1])));
+            // 3. Then-Branch
+            thenBranch.accept(this);
 
-                // Flow
-                case "OP_JUMP" -> code.add(new Op.Jump(labels.get(parts[1]) - pc - 1));
-                case "OP_JUMP_IF_FALSE" -> code.add(new Op.JumpIfFalse(labels.get(parts[1]) - pc - 1));
-                case "OP_LOOP" -> code.add(new Op.Loop(pc - labels.get(parts[1]) + 1));
+            // 4. Jump über Else
+            int jumpOverElse = emitJump();
 
-                // OOP
-                case "OP_CLASS" -> code.add(new Op.Class(parts[1]));
-                case "OP_METHOD" -> code.add(new Op.Method(parts[1]));
-                case "OP_INHERIT" -> code.add(new Op.Inherit());
-                case "OP_GET_PROPERTY" -> code.add(new Op.GetProp(parts[1]));
-                case "OP_SET_PROPERTY" -> code.add(new Op.SetProp(parts[1]));
-                case "OP_INVOKE" -> code.add(new Op.Invoke(parts[1], Integer.parseInt(parts[2])));
-                case "OP_SUPER_INVOKE" -> code.add(new Op.SuperInvoke(parts[1], Integer.parseInt(parts[2])));
-                case "OP_GET_SUPER" -> code.add(new Op.GetSuper(parts[1]));
+            // 5. Patch JumpIfFalse zum Else
+            patchJump(jumpToElse);
 
-                default -> throw new RuntimeException("Unknown opcode: " + op);
+            // 6. Else-Branch, falls vorhanden
+            if (elseBranch != null) {
+                elseBranch.accept(this);
+             }
+
+            // 7. Patch Jump über Else zum Ende
+            patchJump(jumpOverElse);
+
+        return this;
+    }
+
+    
+
+    public SmartAssembler var(String name) {
+        CompilerState current = compilers.peek();
+
+        if (current.scopeDepth > 0) {
+            // Lokale Variable prüfen auf Duplicate innerhalb des Blocks
+            for (Local local : current.locals) {
+                 if (local.depth == current.scopeDepth && local.name.equals(name)) {
+                    throw new RuntimeException(
+                    "Lokale Variable '" + name + "' wurde im gleichen Scope schon deklariert."
+                    );
+                }
             }
-            pc++;
+            current.addLocal(name);
+            int slot = current.locals.size() - 1;
+            emit(new Op.SetLocal(slot));
+        } else {
+            // Global: einfach DefGlobal + SetGlobal
+            globals.add(name);
+            emit(new Op.DefGlobal(name));   // Erstmal definieren (VM merkt sich Slot)
+           //emit(new Op.SetGlobal(name));   // Wert setzen
         }
 
-        return code;
+        return this;
+    }
+
+    public SmartAssembler get(String name) {
+        namedVariable(name, false);
+        return this;
+    }
+    
+    public SmartAssembler set(String name) {
+        namedVariable(name, true);
+        return this;
+    }
+
+    // Block Scopes
+    public SmartAssembler scope(Consumer<SmartAssembler> block) {
+        beginScope();
+        block.accept(this);
+        endScope();
+        return this;
+    }
+
+    // Funktionen & Closures
+    public SmartAssembler fun(String name, int arity, Consumer<SmartAssembler> body) {
+        // 1. Funktion im aktuellen Scope deklarieren
+        var(name); 
+        
+        // 2. Neuen Compiler starten
+        CompilerState current = compilers.peek();
+        CompilerState fnCompiler = new CompilerState(current, FunctionType.FUNCTION);
+        fnCompiler.functionName = name;
+        fnCompiler.arity = arity;
+        
+        // Argumente als Locals registrieren (Slots 1..n)
+        // Slot 0 ist reserviert (für closure selbst oder this)
+        fnCompiler.addLocal(""); // Slot 0 reservieren
+        for(int i=0; i<arity; i++) fnCompiler.addLocal("arg" + i); // Dummy names
+        
+        compilers.push(fnCompiler);
+        
+        // 3. Body kompilieren
+        body.accept(this);
+        emit(new Op.Const(null)); // Implizit return nil
+        emit(new Op.Return());
+        
+        // 4. Compiler beenden & "CompiledFunction" bauen
+        compilers.pop();
+        CompiledFunction compiledFn = new CompiledFunction(name, arity, fnCompiler.code);
+        
+        // 5. CLOSURE OpCode im PARENT emitten
+        // Dieser OpCode enthält Instruktionen, wie die Upvalues zu fangen sind
+        current.code.add(new Op.Closure(compiledFn, fnCompiler.upvalues));
+        
+        return this;
     }
 
 
-
-    /**
-     * Mini-Test für JShell / Debug
-     */
-    // --- Testmethode ---
-    public void testAssembler() {
-        String program = """
-            OP_CONSTANT 1
-            OP_CONSTANT 2
-            OP_ADD
-            OP_PRINT
-        """;
-
-        CompiledFunction fn = assemble(program);
-        new VM().interpret(fn); // Erwartet: 3
+            // In SmartAssembler.java - NUR DIESE METHODE BEHALTEN:
+    public SmartAssembler fun(String name, List<String> paramNames, Consumer<SmartAssembler> body) {
+        int arity = paramNames.size();
+             // 2. Neuen Compiler starten
+        CompilerState current = compilers.peek();
+        CompilerState fnCompiler = new CompilerState(current, FunctionType.FUNCTION);
+        fnCompiler.functionName = name;
+        fnCompiler.arity = arity;
+    
+         // Parameter mit RICHTIGEN Namen registrieren
+         for (String paramName : paramNames) {
+            fnCompiler.addLocal(paramName);
+        }
+    
+        compilers.push(fnCompiler);
+    
+        // 3. Body kompilieren
+        body.accept(this);
+    
+        // 4. Implizites Return falls nötig
+        if (!(compilers.peek().code.getLast() instanceof Op.Return)) {
+            emit(new Op.Nil());
+            emit(new Op.Return());
+        }
+    
+        // 5. Compiler beenden
+         compilers.pop();
+        CompiledFunction compiledFn = new CompiledFunction(name, arity, fnCompiler.code);
+    
+        // 6. Closure erstellen
+        current.code.add(new Op.Closure(compiledFn, fnCompiler.upvalues));
+        // DANN: Als globale Variable speichern 
+        var(name); 
+        return this;
     }
 
-    // Run a file with text code
-    void runAssembler( String file) throws IOException {
-        String program = Files.readString(Path.of(file));
-         CompiledFunction fn = assemble(program);
-         new VM().interpret(fn);
+    // OOP
+   public SmartAssembler classDecl(String name, Consumer<SmartAssembler> body) {
+         return classDecl(name, null, body);
+    }
+    public SmartAssembler classDecl(
+    String name,
+    String superClassName,
+    Consumer<SmartAssembler> body
+) {
+    // 0. Reserviere globale Variable, damit die Klasse existiert
+    var(name);
 
+    // 1. Klasse erzeugen
+    emit(new Op.Class(name));
+
+    // 2. Scope für `super` falls nötig
+    if (superClassName != null) {
+        beginScope();
+        get(superClassName);
+        var("super");
     }
 
+    // 3. Methoden definieren
+    body.accept(this);
 
+    // 4. super-Scope schließen
+    if (superClassName != null) {
+        endScope();
+    }
+
+    // 5. Klasse in globale Variable speichern
+    set(name);
+
+    return this;
 }
+
+    public SmartAssembler getSuper(String method) {
+        get("this");   // Receiver
+        get("super");  // Superklasse (Upvalue!)
+        emit(new Op.GetSuper(method));
+        return this;
+    }
+
+    
+    public SmartAssembler method(String name, int arity, Consumer<SmartAssembler> body) {
+        // Ähnlich wie fun, aber FunctionType.METHOD und Slot 0 = "this"
+        CompilerState current = compilers.peek();
+        CompilerState methodCompiler = new CompilerState(current, FunctionType.METHOD);
+        methodCompiler.functionName = name;
+        methodCompiler.arity = arity;
+        methodCompiler.addLocal("this"); // Slot 0 ist this!
+        for(int i=0; i<arity; i++) methodCompiler.addLocal("arg"+i);
+        
+        compilers.push(methodCompiler);
+        body.accept(this);
+        if (!(methodCompiler.code.getLast() instanceof Op.Return)) {
+             emit(new Op.GetLocal(0)); // this zurückgeben (wichtig für init!)
+             emit(new Op.Return());
+        }
+        compilers.pop();
+        
+        CompiledFunction fn = new CompiledFunction(name, arity, methodCompiler.code);
+        // Method OpCode: Binde Closure an Klasse (Stack Top)
+        current.code.add(new Op.Closure(fn, methodCompiler.upvalues));
+        emit(new Op.Method(name));
+        return this;
+    }
+    
+     public SmartAssembler method(
+        String name,
+        List<String> paramNames,
+        Consumer<SmartAssembler> body
+    ) 
+    {
+        CompilerState current = compilers.peek();
+        CompilerState methodCompiler =
+        new CompilerState(current, FunctionType.METHOD);
+
+        methodCompiler.functionName = name;
+        methodCompiler.arity = paramNames.size();
+
+         // Slot 0 = this
+        methodCompiler.addLocal("this");
+
+        // Slots 1..n = echte Parameternamen
+        for (String param : paramNames) {
+             methodCompiler.addLocal(param);
+        }
+
+        compilers.push(methodCompiler);
+        body.accept(this);
+
+        // implizites return this für init
+        if (methodCompiler.code.isEmpty() || !(methodCompiler.code.getLast() instanceof Op.Return)) {
+            emit(new Op.GetLocal(0));
+            emit(new Op.Return());
+        }
+
+        compilers.pop();
+
+        CompiledFunction fn =
+        new CompiledFunction(name, methodCompiler.arity, methodCompiler.code);
+
+        current.code.add(new Op.Closure(fn, methodCompiler.upvalues));
+        emit(new Op.Method(name));
+
+        return this;
+    }
+
+    public SmartAssembler call(int args) { emit(new Op.Call(args)); return this; }
+    public SmartAssembler getProp(String p) { emit(new Op.GetProp(p)); return this; }
+    public SmartAssembler setProp(String p) { emit(new Op.SetProp(p)); return this; }
+
+    // --- Internals & Resolution Logic ---
+
+    private void beginScope() { compilers.peek().scopeDepth++; }
+    
+    private void endScope() {
+        CompilerState c = compilers.peek();
+        c.scopeDepth--;
+        // Locals poppen & Upvalues schließen
+        while (!c.locals.isEmpty() && c.locals.getLast().depth > c.scopeDepth) {
+            emit(new Op.CloseUpval()); // Wichtig für Closures!
+            emit(new Op.Pop());        // Wichtig für Stack!
+            c.locals.removeLast();
+        }
+    }
+
+    private void emit(Op op) { compilers.peek().code.add(op); }
+
+    // Die Kern-Logik: Variable auflösen
+    private void namedVariable(String name, boolean canAssign) {
+        CompilerState current = compilers.peek();
+        
+        // 1. Versuch: Lokal
+        int arg = resolveLocal(current, name);
+        if (arg != -1) {
+            emit(canAssign ? new Op.SetLocal(arg) : new Op.GetLocal(arg));
+            return;
+        }
+        
+        // 2. Versuch: Upvalue (Rekursiv!)
+        arg = resolveUpvalue(current, name);
+        if (arg != -1) {
+            emit(canAssign ? new Op.SetUpval(arg) : new Op.GetUpval(arg));
+            return;
+        }
+          boolean existsGlobally = globals.contains(name); // du musst globale Variablen tracken
+        if (!canAssign && !existsGlobally) {
+            throw new RuntimeException("Variable '" + name + "' nicht definiert!");
+         }
+        // 3. Fallback: Global
+        emit(canAssign ? new Op.SetGlobal(name) : new Op.GetGlobal(name));
+    }
+
+    private int resolveLocal(CompilerState c, String name) {
+        for (int i = c.locals.size() - 1; i >= 0; i--) {
+            if (c.locals.get(i).name.equals(name)) return i;
+        }
+        return -1;
+    }
+
+    // Das ist der kniffligste Teil von `clox` in Java nachgebaut
+    private int resolveUpvalue(CompilerState c, String name) {
+        if (c.enclosing == null) return -1;
+
+        // Suche im Parent (ist es dort lokal?)
+        int local = resolveLocal(c.enclosing, name);
+        if (local != -1) {
+            // Gefunden! Im Parent ist es lokal. Wir capturen es.
+            c.enclosing.locals.get(local).isCaptured = true;
+            return addUpvalue(c, local, true);
+        }
+
+        // Suche im Parent (ist es dort schon ein Upvalue?)
+        int upvalue = resolveUpvalue(c.enclosing, name);
+        if (upvalue != -1) {
+            return addUpvalue(c, upvalue, false);
+        }
+
+        return -1;
+    }
+
+    private int addUpvalue(CompilerState c, int index, boolean isLocal) {
+        // Upvalue Liste checken (Deduplication)
+        for (int i = 0; i < c.upvalues.size(); i++) {
+            UpvalueDescriptor up = c.upvalues.get(i);
+            if (up.index() == index && up.isLocal() == isLocal) return i;
+        }
+        c.upvalues.add(new UpvalueDescriptor(isLocal, index));
+        return c.upvalues.size() - 1;
+    }
+    
+    // --- Helper Classes ---
+    public CompiledFunction compile() { return new CompiledFunction("script", 0, compilers.peek().code); }
+
+    enum FunctionType { SCRIPT, FUNCTION, METHOD }
+    
+    static class Local {
+        String name; int depth; boolean isCaptured;
+        Local(String n, int d) { name=n; depth=d; }
+    }
+
+    static class CompilerState {
+        CompilerState enclosing;
+        List<Op> code = new ArrayList<>();
+        List<Local> locals = new ArrayList<>();
+        List<UpvalueDescriptor> upvalues = new ArrayList<>(); // Die "Inputs" für das Closure
+        int scopeDepth = 0;
+        FunctionType type;
+        String functionName = "";
+        int arity = 0;
+
+        CompilerState(CompilerState enc, FunctionType t) { enclosing = enc; type = t; }
+        
+        void addLocal(String name) {
+            locals.add(new Local(name, scopeDepth));
+        }
+    }
+
+// --- Hilfsmethoden für Tests ---
+   static void runTest(String testName, Consumer<SmartAssembler> build) {
+        System.out.println("=== Test: " + testName + " ===");
+        SmartAssembler a = new SmartAssembler();
+        CompiledFunction fn = buildAsm(a, build);
+        for(Op op: fn.code()){
+            System.out.println(op);
+        }
+        System.out.println();
+    }
+
+    static CompiledFunction buildAsm(SmartAssembler a, Consumer<SmartAssembler> build) {
+         build.accept(a);
+        return a.compile();
+    }
+
+    static void printBytecode(CompiledFunction fn) {
+        for (Op op : fn.code()) {
+            System.out.println(op);
+        }
+    }
+
+    // ---Testfälle ---
+
+    static void test1() {
+     runTest("test1", a -> {
+        a.scope(s -> {
+            s.const_(new Val.Num(1)).var("x");
+            s.const_(new Val.Num(2)).var("x"); // sollte Fehler auslösen
+        });
+    });
+    }
+
+    static void test2() {
+        runTest("test2", a -> {
+            a.scope(s -> {
+                s.const_(new Val.Num(5)).var("y");
+                s.scope(s2 -> {
+                    s2.const_(new Val.Num(6)).var("y"); // erlaubt
+                });
+            });
+        });
+    }
+
+    static void testIfElse() {
+         runTest("testIfElse", a -> {
+            a.const_(new Val.Bool(true))
+            .scope(s -> {
+                int jumpFalsePos = s.emitJumpIfFalse();
+                s.const_(new Val.Num(1)).print();
+                int jumpEndPos = s.emitJump();
+                s.patchJump(jumpFalsePos);
+                 s.const_(new Val.Num(2)).print();
+                s.patchJump(jumpEndPos);
+            });
+        });
+    }
+
+    static void testOr() {
+        runTest("testOr", a -> {
+            a.or(
+                s -> s.const_(new Val.Bool(false)),
+                s -> s.const_(new Val.Bool(true))
+            ).print();
+        });
+    }
+
+    static void testAnd() {
+        runTest("testAnd", a -> {
+            a.and(
+                s -> s.const_(new Val.Bool(true)),
+                 s -> s.const_(new Val.Bool(false))
+            ).print();
+        });
+    }
+
+    static void testWhile() {
+        runTest("testWhile", a -> {
+            a.const_(new Val.Num(0)).var("i");
+            int loopStart = a.compilers.peek().code.size();
+            a.get("i").const_(new Val.Num(3)).lt();
+            int exitJump = a.emitJumpIfFalse();
+            a.get("i").print();
+            a.get("i").const_(new Val.Num(1)).add().set("i");
+            a.emitLoop(loopStart);
+            a.patchJump(exitJump);
+        });
+    }
+
+    static void testClass() {
+        runTest("testClass", a -> {
+            a.classDecl("Foo", c -> {
+                c.method("bar", 0, m -> {
+                    m.const_(new Val.Str("Foo.bar")).print();
+                });
+            });
+        });
+    }
+
+    static void testOrShortCircuit() {
+        runTest("testOrShortCircuit", a -> {
+            a.or(
+                s -> s.true_(),
+                s -> s.const_(new Val.Str("BAD")).print() // darf NICHT ausgeführt werden
+            );
+        });
+    }
+
+   static void testVarSelfAssign() {
+    runTest("var a = a;", a -> {
+        // Lox: var a = a; 
+        // 1. Versuche RHS auszuwerten (a) → existiert noch nicht, sollte nil sein
+        a.get("a");        // greift auf 'a', das noch nicht existiert → sollte global oder nil
+        // 2. Deklariere Variable a und setze Wert
+        a.var("a");        
+    });
+}
+
+    
+ }
