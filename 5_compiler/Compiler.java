@@ -1042,57 +1042,38 @@ class SmartAssembler {
    public SmartAssembler classDecl(String name, Consumer<SmartAssembler> body) {
          return classDecl(name, null, body);
     }
-
-
     public SmartAssembler classDecl(
-        String name,
-        String superClassName,
-        Consumer<SmartAssembler> body
-    ) 
-    {
-        // 1. Klasse erzeugen
-        emit(new Op.Class(name));
+    String name,
+    String superClassName,
+    Consumer<SmartAssembler> body
+) {
+    // 0. Reserviere globale Variable, damit die Klasse existiert
+    var(name);
 
-        //2. Klasse global speichern
-        emit(new Op.DefGlobal(name));
+    // 1. Klasse erzeugen
+    emit(new Op.Class(name));
 
-         // 3. Vererbung
-        if (superClassName != null) {
-             // Subclass laden
-            get(name);
-
-            // Superclass laden
-            get(superClassName);
-
-            // Methoden kopieren
-            emit(new Op.Inherit());
-         }
-
-        // 4. Klasse wieder auf den Stack (für Methoden)
-        emit(new Op.GetGlobal(name));
-
-        // 5. Scope für `super`
-        if (superClassName != null) {
-            beginScope();
-
-            // super als lokale Variable
-            get(superClassName);
-            var("super");
-        }
-
-         // 6. Methoden definieren
-        body.accept(this);
-
-        // 7. super-Scope schließen
-        if (superClassName != null) {
-            endScope();
-        }
-
-        // 8. Klasse vom Stack entfernen
-         emit(new Op.Pop());
-
-        return this;
+    // 2. Scope für `super` falls nötig
+    if (superClassName != null) {
+        beginScope();
+        get(superClassName);
+        var("super");
     }
+
+    // 3. Methoden definieren
+    body.accept(this);
+
+    // 4. super-Scope schließen
+    if (superClassName != null) {
+        endScope();
+    }
+
+    // 5. Klasse in globale Variable speichern
+    set(name);
+
+    return this;
+}
+
     public SmartAssembler getSuper(String method) {
         get("this");   // Receiver
         get("super");  // Superklasse (Upvalue!)
@@ -1112,7 +1093,10 @@ class SmartAssembler {
         
         compilers.push(methodCompiler);
         body.accept(this);
-        emit(new Op.Const(null)); emit(new Op.Return());
+        if (!(methodCompiler.code.getLast() instanceof Op.Return)) {
+             emit(new Op.GetLocal(0)); // this zurückgeben (wichtig für init!)
+             emit(new Op.Return());
+        }
         compilers.pop();
         
         CompiledFunction fn = new CompiledFunction(name, arity, methodCompiler.code);
@@ -1122,6 +1106,47 @@ class SmartAssembler {
         return this;
     }
     
+     public SmartAssembler method(
+        String name,
+        List<String> paramNames,
+        Consumer<SmartAssembler> body
+    ) 
+    {
+        CompilerState current = compilers.peek();
+        CompilerState methodCompiler =
+        new CompilerState(current, FunctionType.METHOD);
+
+        methodCompiler.functionName = name;
+        methodCompiler.arity = paramNames.size();
+
+         // Slot 0 = this
+        methodCompiler.addLocal("this");
+
+        // Slots 1..n = echte Parameternamen
+        for (String param : paramNames) {
+             methodCompiler.addLocal(param);
+        }
+
+        compilers.push(methodCompiler);
+        body.accept(this);
+
+        // implizites return this für init
+        if (methodCompiler.code.isEmpty() || !(methodCompiler.code.getLast() instanceof Op.Return)) {
+            emit(new Op.GetLocal(0));
+            emit(new Op.Return());
+        }
+
+        compilers.pop();
+
+        CompiledFunction fn =
+        new CompiledFunction(name, methodCompiler.arity, methodCompiler.code);
+
+        current.code.add(new Op.Closure(fn, methodCompiler.upvalues));
+        emit(new Op.Method(name));
+
+        return this;
+    }
+
     public SmartAssembler call(int args) { emit(new Op.Call(args)); return this; }
     public SmartAssembler getProp(String p) { emit(new Op.GetProp(p)); return this; }
     public SmartAssembler setProp(String p) { emit(new Op.SetProp(p)); return this; }
@@ -1448,20 +1473,30 @@ public class Compiler {
             }
             
             case Stmt.Class classDecl -> {
-                // class Name { methods }
-                String superClassName = null;
+                     String superClassName = null;
                 if (classDecl.superClass() != null) {
                     superClassName = classDecl.superClass().name().lexem();
                 }
-                
+
                 asm.classDecl(classDecl.name().lexem(), superClassName, a -> {
-                    // Methoden definieren
                     for (Stmt.Function method : classDecl.methods()) {
-                          stmtToAsm(method);
-                        };
-                    
+                            List<String> params = method.params()
+                            .stream()
+                            .map(Token::lexem)
+                            .toList();
+                            a.method(
+                                    method.name().lexem(),
+                                    params,
+                                    ma -> {
+                                        for (Stmt st : method.body()) {
+                                            stmtToAsm(st);
+                                        }
+                                     }
+                            );
+                    }
                 });
             }
+
             
             default -> 
                 throw new RuntimeException("Unknown statement type: " + stmt);
@@ -1486,9 +1521,24 @@ public class Compiler {
                     throw new RuntimeException("Unknown literal: " + v);
             }
             
-            case Expr.Variable var -> 
-                asm.get(var.name().lexem());
+             case Expr.This thisExpr -> {
+                // 'this' referenziert die aktuelle Instanz
+                asm.get("this");
+            }
             
+            case Expr.Super superExpr -> {
+                // 'super.method'
+                asm.getSuper(superExpr.method().lexem());
+            }
+            case Expr.Variable var -> {
+                Token token = var.name();   // zuerst sichern
+                if (token == null) {
+                     throw new RuntimeException("Variable without name (this/super?)");
+                }
+                
+                asm.get(var.name().lexem());
+
+            }
             case Expr.Assign ass -> {
                 exprToAsm(ass.value());
                 asm.set(ass.name().lexem());
@@ -1563,15 +1613,7 @@ public class Compiler {
                 asm.setProp(set.name().lexem());
             }
             
-            case Expr.This thisExpr -> {
-                // 'this' referenziert die aktuelle Instanz
-                asm.get("this");
-            }
-            
-            case Expr.Super superExpr -> {
-                // 'super.method'
-                asm.getSuper(superExpr.method().lexem());
-            }
+           
             
             default -> 
                 throw new RuntimeException("Unhandled expression type: " + expr.getClass().getSimpleName());
@@ -1621,6 +1663,11 @@ public class Compiler {
             System.out.println(op);
         }
         System.out.println();
+         System.out.println("=== Run Unary ===");
+         
+           VM vm = new VM();
+        vm.interpret(fn);
+    
     }
 
     static void testUnary() {
@@ -1632,6 +1679,7 @@ public class Compiler {
             System.out.println(op);
         }
         System.out.println();
+
     }
     
     static void testIfElse() {
@@ -1709,22 +1757,34 @@ public class Compiler {
     }
     System.out.println();
 }
-    static void testClass() {
+    static void     testClass() {
         System.out.println("=== Test Class ===");
         Compiler compiler = new Compiler();
         String source = """
-            class Dog {
-                init(name) {
-                    this.name = name;
-                }
-                
-                bark() {
-                    print this.name + " says Woof!";
-                }
+           class Animal {
+            init(name) {
+                this.name = name;
             }
-            
-            var dog = Dog("Buddy");
-            dog.bark();
+
+            speak() {
+                print "Animal speaks";
+            }
+        }
+
+        class Dog < Animal {
+            init(name, age) {
+                super.init(name);
+                this.age = age;
+            }
+
+            bark() {
+                print this.name + " says woof";
+            }
+
+            getAge() {
+                return this.age;
+            }
+        }
             """;
         CompiledFunction fn = compiler.compile(source);
         for (Op op : fn.code()) {
@@ -1829,5 +1889,38 @@ public class Compiler {
         VM vm = new VM();
         vm.interpret(fn);
     }
+       static void testParser() {
+    String source = """
+        class Animal {
+            init(name) {
+                this.name = name;
+            }
+
+            speak() {
+                print "Animal speaks";
+            }
+        }
+
+        class Dog < Animal {
+            init(name, age) {
+                super.init(name);
+                this.age = age;
+            }
+
+            bark() {
+                print this.name + " says woof";
+            }
+
+            getAge() {
+                return this.age;
+            }
+        }
+        """;
+
+    ParserMain parser = ParserMain.fromSource(source);
+
+    // AST als Graphviz-DOT ausgeben
+    parser.printDot();
+}
 
 }
