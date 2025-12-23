@@ -1,6 +1,0 @@
-class test<parser{
-    testp(pa1,pa2){
-        var b =2;
-        print a;
-    }
-}
