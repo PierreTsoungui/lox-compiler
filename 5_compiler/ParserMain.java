@@ -469,7 +469,7 @@ public class ParserMain {
                                     .map(n -> (Stmt.Function) n)
                                     .toList();
 
-        return new Stmt.Class(className.token(), new Expr.Variable(superClass), methods);
+        return new Stmt.Class(className.token(), superClass == null ? null : new Expr.Variable(superClass), methods);
     });
     }
     
@@ -865,7 +865,7 @@ public class ParserMain {
          TokenType.THIS, Expr.This::new,
          TokenType.NUMBER, t -> new Expr.Literal(t.value()),
          TokenType.STRING, t -> new Expr.Literal(t.value()),
-         TokenType.IDENTIFIER, Expr.Variable::new
+         TokenType.IDENTIFIER, Expr.Variable::new 
         );
 
         @SuppressWarnings("unchecked")
@@ -885,7 +885,7 @@ public class ParserMain {
             TokenType.LEFT_PAREN, parseExpression(), TokenType.RIGHT_PAREN
         ).map(Expr.Grouping::new);
   
-        return new Or<>(simpleTokens, superExpr, grouping);
+        return new Or<>(simpleTokens,superExpr, grouping);
     }
       @SuppressWarnings("unchecked")
     private <T extends AstNode> Parser<T>between(TokenType left, Parser<T> middle, TokenType right) {
@@ -907,7 +907,7 @@ public class ParserMain {
         })
     );
 }
-
+        
     /*Hilfemethode */
      // Kurze DOT-Methoden:
     public String toDot() {
