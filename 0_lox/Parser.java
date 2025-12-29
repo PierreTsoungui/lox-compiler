@@ -343,7 +343,6 @@ public class Parser {
     }
 
     private ParseError error(Token token, String message) { 
-        // Temporäre Lösung, wenn Lox nicht existiert
         System.err.println("Error at line " + token.line() + ": " + message);
         return new ParseError(); 
     }
