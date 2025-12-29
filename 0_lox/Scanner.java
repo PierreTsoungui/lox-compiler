@@ -1,8 +1,8 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-import java.util.*;
-
-
-// --- Modernisierte Scanner-Klasse ---
+// --- Modernisierte Scanner-Klasse (unabhängig von Lox) ---
 public class Scanner {
 
     // Keyword Map
@@ -27,6 +27,7 @@ public class Scanner {
 
     private final String source;
     private final List<Token> tokens = new ArrayList<>();
+    private boolean hadError = false;  // NEU: Lokales Error-Flag
     private int start = 0;
     private int current = 0;
     private int line = 1;
@@ -35,13 +36,24 @@ public class Scanner {
         this.source = source;
     }
 
-   public List<Token> scanTokens() {
+    public List<Token> scanTokens() {
         while (!isAtEnd()) {
             start = current;
             scanToken();
         }
         tokens.add(new Token(TokenType.EOF, "", null, line));
         return tokens;
+    }
+    
+    // NEU: Methode um zu prüfen ob Fehler aufgetreten sind
+    public boolean hadError() {
+        return hadError;
+    }
+
+    // NEU: Eigene Error-Methode (ersetzt Lox.error)
+    private void error(int line, String message) {
+        System.err.println("[line " + line + "] Error: " + message);
+        hadError = true;
     }
 
     public void scanToken() {
@@ -75,7 +87,7 @@ public class Scanner {
             default -> {
                 if (isDigit(c)) number();
                 else if (isAlpha(c)) identifier();
-                else Lox.error(line, "Unexpected character.");
+                else error(line, "Unexpected character."); // GEÄNDERT: Lox.error → error
             }
         }
     }
@@ -84,12 +96,8 @@ public class Scanner {
         while (isAlphaNumeric(peek())) advance();
         String text = source.substring(start, current);
 
-        TokenType type = keywords.entrySet().stream()
-            .filter(e -> e.getKey().equals(text))
-            .map(Map.Entry::getValue)
-            .findFirst()
-            .orElse(TokenType.IDENTIFIER);
-
+        // Vereinfachte Version (ohne Streams für bessere Lesbarkeit)
+        TokenType type = keywords.getOrDefault(text, TokenType.IDENTIFIER);
         addToken(type);
     }
 
@@ -99,7 +107,12 @@ public class Scanner {
             advance();
             while (isDigit(peek())) advance();
         }
-        addToken(TokenType.NUMBER, Double.parseDouble(source.substring(start, current)));
+        
+        try {
+            addToken(TokenType.NUMBER, Double.parseDouble(source.substring(start, current)));
+        } catch (NumberFormatException e) {
+            error(line, "Invalid number format.");
+        }
     }
 
     private void string() {
@@ -108,7 +121,7 @@ public class Scanner {
             advance();
         }
         if (isAtEnd()) {
-            Lox.error(line, "Unterminated string.");
+            error(line, "Unterminated string."); // GEÄNDERT: Lox.error → error
             return;
         }
         advance();
