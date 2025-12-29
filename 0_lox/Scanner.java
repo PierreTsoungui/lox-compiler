@@ -1,9 +1,9 @@
 
 import java.util.*;
-import java.util.stream.*;
+
 
 // --- Modernisierte Scanner-Klasse ---
-class Scanner {
+public class Scanner {
 
     // Keyword Map
     private static final Map<String, TokenType> keywords = Map.ofEntries(
@@ -31,11 +31,11 @@ class Scanner {
     private int current = 0;
     private int line = 1;
 
-    Scanner(String source) {
+    public Scanner(String source) {
         this.source = source;
     }
 
-    List<Token> scanTokens() {
+   public List<Token> scanTokens() {
         while (!isAtEnd()) {
             start = current;
             scanToken();
@@ -44,7 +44,7 @@ class Scanner {
         return tokens;
     }
 
-    private void scanToken() {
+    public void scanToken() {
         char c = advance();
         switch (c) {
             case '(', ')', '{', '}', ',', '.', '-', '+', ';', '*' ->

@@ -1,13 +1,7 @@
 import java.util.*;
 import java.util.function.Supplier;
 
-/**
- * Moderner Parser für Lox
- * - Java 17+ Features
- * - Records, Sealed Interfaces
- * - Switch Expressions, Pattern Matching, Optional
- */
-class Parser {
+public class Parser {
     private static class ParseError extends RuntimeException {}
 
     private final List<Token> tokens;
@@ -15,7 +9,7 @@ class Parser {
     private static final int MAX_ARGS = 255;
     private static final int MAX_PARAMS = 255;
 
-    Parser(List<Token> tokens) {
+   public Parser(List<Token> tokens) {
         this.tokens = tokens;
     }
 
@@ -27,7 +21,7 @@ class Parser {
     /* ---------------------------
        Entry Point
     --------------------------- */
-    List<Stmt> parse() {
+    public List<Stmt> parse() {
         var statements = new ArrayList<Stmt>();
         while (!isAtEnd()) {
             var decl = declaration();
@@ -90,26 +84,65 @@ class Parser {
 
     private Stmt forStatement() {
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
-        final Stmt initializer = match(TokenType.SEMICOLON) ? null
-                : match(TokenType.VAR) ? varDeclaration()
-                : expressionStatement();
-        final Optional<Expr> condition = !check(TokenType.SEMICOLON) ? Optional.of(expression()) : Optional.empty();
+        
+        // Initializer
+        final Stmt initializer;
+        if (match(TokenType.SEMICOLON)) {
+            initializer = null;
+        } else if (match(TokenType.VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+        
+        // Condition
+        final Expr condition;
+        if (!check(TokenType.SEMICOLON)) {
+            condition = expression();
+        } else {
+            condition = null;
+        }
         consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
-        final Optional<Expr> increment = !check(TokenType.RIGHT_PAREN) ? Optional.of(expression()) : Optional.empty();
+        
+        // Increment
+        final Expr increment;
+        if (!check(TokenType.RIGHT_PAREN)) {
+            increment = expression();
+        } else {
+            increment = null;
+        }
         consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+        
         var body = statement();
 
-        body = increment.map(inc -> new Stmt.Block(Arrays.asList(body, new Stmt.Expression(inc)))).orElse(body);
-        body = condition.map(cond -> new Stmt.While(cond, body)).orElseGet(() -> new Stmt.While(new Expr.Literal(true), body));
-        if (initializer != null) body = new Stmt.Block(Arrays.asList(initializer, body));
+        // Add increment if present
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(
+                body,
+                new Stmt.Expression(increment)
+            ));
+        }
+        
+        // Add while loop with condition
+        if (condition != null) {
+            body = new Stmt.While(condition, body);
+        } else {
+            body = new Stmt.While(new Expr.Literal(true), body);
+        }
+        
+        // Add initializer if present
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+        
         return body;
     }
 
     private Stmt ifStatement() {
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
-        var condition = expression();
+        Expr condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
-        var thenBranch = statement();
+        Stmt thenBranch = statement();
         Stmt elseBranch = match(TokenType.ELSE) ? statement() : null;
         return new Stmt.If(condition, thenBranch, elseBranch);
     }
@@ -229,11 +262,21 @@ class Parser {
             case FALSE -> { advance(); yield new Expr.Literal(false); }
             case TRUE -> { advance(); yield new Expr.Literal(true); }
             case NIL -> { advance(); yield new Expr.Literal(null); }
-            case NUMBER, STRING -> { advance(); yield new Expr.Literal(previous().literal()); }
-            case SUPER -> { advance(); var kw = previous(); consume(TokenType.DOT, "Expect '.' after 'super'."); yield new Expr.Super(kw, consume(TokenType.IDENTIFIER, "Expect superclass method name.")); }
+            case NUMBER, STRING -> { advance(); yield new Expr.Literal(previous().literal()); } // Geändert: value() -> literal()
+            case SUPER -> { 
+                advance(); 
+                var kw = previous(); 
+                consume(TokenType.DOT, "Expect '.' after 'super'."); 
+                yield new Expr.Super(kw, consume(TokenType.IDENTIFIER, "Expect superclass method name.")); 
+            }
             case THIS -> { advance(); yield new Expr.This(previous()); }
             case IDENTIFIER -> { advance(); yield new Expr.Variable(previous()); }
-            case LEFT_PAREN -> { advance(); var expr = expression(); consume(TokenType.RIGHT_PAREN, "Expect ')' after expression."); yield new Expr.Grouping(expr); }
+            case LEFT_PAREN -> { 
+                advance(); 
+                var expr = expression(); 
+                consume(TokenType.RIGHT_PAREN, "Expect ')' after expression."); 
+                yield new Expr.Grouping(expr); 
+            }
             default -> throw error(peek(), "Expect expression.");
         };
     }
@@ -255,16 +298,55 @@ class Parser {
     /* ---------------------------
        Token Helpers
     --------------------------- */
-    private boolean match(TokenType... types) { for (var t : types) if (check(t)) { advance(); return true; } return false; }
-    private boolean checkAndAdvance(TokenType type) { if (check(type)) { advance(); return true; } return false; }
-    private Token consume(TokenType type, String message) { if (check(type)) return advance(); throw error(peek(), message); }
-    private boolean check(TokenType type) { return !isAtEnd() && peek().type() == type; }
-    private Token advance() { if (!isAtEnd()) current++; return previous(); }
-    private boolean isAtEnd() { return peek().type() == TokenType.EOF; }
-    private Token peek() { return tokens.get(current); }
-    private Token previous() { return tokens.get(current - 1); }
+    private boolean match(TokenType... types) { 
+        for (var t : types) {
+            if (check(t)) { 
+                advance(); 
+                return true; 
+            }
+        }
+        return false; 
+    }
+    
+    private boolean checkAndAdvance(TokenType type) { 
+        if (check(type)) { 
+            advance(); 
+            return true; 
+        }
+        return false; 
+    }
+    
+    private Token consume(TokenType type, String message) { 
+        if (check(type)) return advance(); 
+        throw error(peek(), message); 
+    }
+    
+    private boolean check(TokenType type) { 
+        return !isAtEnd() && peek().type() == type; 
+    }
+    
+    private Token advance() { 
+        if (!isAtEnd()) current++; 
+        return previous(); 
+    }
+    
+    private boolean isAtEnd() { 
+        return peek().type() == TokenType.EOF; 
+    }
+    
+    private Token peek() { 
+        return tokens.get(current); 
+    }
+    
+    private Token previous() { 
+        return tokens.get(current - 1); 
+    }
 
-    private ParseError error(Token token, String message) { Lox.error(token, message); return new ParseError(); }
+    private ParseError error(Token token, String message) { 
+        // Temporäre Lösung, wenn Lox nicht existiert
+        System.err.println("Error at line " + token.line() + ": " + message);
+        return new ParseError(); 
+    }
 
     private void synchronize() {
         advance();
