@@ -45,12 +45,10 @@ public class Scanner {
         return tokens;
     }
     
-    // NEU: Methode um zu prüfen ob Fehler aufgetreten sind
     public boolean hadError() {
         return hadError;
     }
 
-    // NEU: Eigene Error-Methode (ersetzt Lox.error)
     private void error(int line, String message) {
         System.err.println("[line " + line + "] Error: " + message);
         hadError = true;

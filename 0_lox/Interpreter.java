@@ -1,469 +1,403 @@
-
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class Interpreter {
-    // Exception Klassen (müssen public sein für LoxValue)
-    public static class RuntimeError extends RuntimeException {
-        public final Token token;
-        public RuntimeError(Token token, String message) {
-            super(message);
-            this.token = token;
-        }
-    }
-    
+
+    // ===========================
+    // Return Exception
+    // ===========================
     static class Return extends RuntimeException {
         final LoxValue value;
         Return(LoxValue value) {
+            super(null, null, false, false);
             this.value = value;
         }
     }
-    
-    // Interpreter State
+
+    // ===========================
+    // State
+    // ===========================
     final Environment globals = new Environment();
     private Environment environment = globals;
     private final Map<Expr, Integer> locals = new HashMap<>();
-    
-    // Konstruktor
-    Interpreter() {
-        // Native Funktion "clock"
-        globals.define("clock", new LoxValue.NativeFn() {
+
+    // ===========================
+    // Constructor
+    // ===========================
+    public Interpreter() {
+        // Native function: clock()
+        globals.define("clock", new LoxCallable() {
             @Override
             public int arity() { return 0; }
-            
+
             @Override
-            public LoxValue call(Interpreter interpreter, List<LoxValue> arguments) {
+            public LoxValue call(Object interpreter, List<LoxValue> arguments) {
                 return new LoxValue.Num(System.currentTimeMillis() / 1000.0);
             }
+
+            @Override
+            public String toString() { return "<native fn>"; }
         });
     }
-    
-    // === Hauptmethoden ===
-    
-    void interpret(List<Stmt> statements) {
+
+    // ===========================
+    // Interpret
+    // ===========================
+    public void interpret(List<Stmt> statements) {
         try {
-            for (var statement : statements) {
-                execute(statement);
+            for (var stmt : statements) {
+                execute(stmt);
             }
         } catch (RuntimeError error) {
-               System.err.println("[line " + error.token.line() + "] " + error.getMessage());
-           
+            System.err.println(
+                "[line " + error.token.line() + "] " + error.getMessage()
+            );
         }
     }
-    
-    void resolve(Expr expr, int depth) {
+
+    public void resolve(Expr expr, int depth) {
         locals.put(expr, depth);
     }
-    
-    // === Expression Evaluation ===
-    
-    LoxValue evaluate(Expr expr) {
+
+    // ===========================
+    // Evaluation
+    // ===========================
+    public LoxValue evaluate(Expr expr) {
         return switch (expr) {
-            case Expr.Assign(var name, var value) -> {
-                var val = evaluate(value);
-                var distance = locals.get(expr);
-                if (distance != null) {
-                    environment.assignAt(distance, name, val);
-                } else {
-                    globals.assign(name, val);
-                }
-                yield val;
-            }
-            
-            case Expr.Binary(var left, var operator, var right) -> 
+            case Expr.Assign(var name, var value) ->
+                evaluateAssign(expr, name, value);
+            case Expr.Binary(var left, var operator, var right) ->
                 evaluateBinary(left, operator, right);
-                
-            case Expr.Call(var callee, var paren, var arguments) -> 
+            case Expr.Call(var callee, var paren, var arguments) ->
                 evaluateCall(callee, paren, arguments);
-                
-            case Expr.Get(var object, var name) -> 
+            case Expr.Get(var object, var name) ->
                 evaluateGet(object, name);
-                
-            case Expr.Grouping(var expression) -> 
+            case Expr.Grouping(var expression) ->
                 evaluate(expression);
-                
-            case Expr.Literal(var value) -> 
+            case Expr.Literal(var value) ->
                 evaluateLiteral(value);
-                
-            case Expr.Logical(var left, var operator, var right) -> 
+            case Expr.Logical(var left, var operator, var right) ->
                 evaluateLogical(left, operator, right);
-                
-            case Expr.Set(var object, var name, var value) -> 
+            case Expr.Set(var object, var name, var value) ->
                 evaluateSet(object, name, value);
-                
-            case Expr.Super(var keyword, var method) -> 
+            case Expr.Super(var keyword, var method) ->
                 evaluateSuper(keyword, method);
-                
-            case Expr.This(var keyword) -> 
+            case Expr.This(var keyword) ->
                 evaluateThis(keyword);
-                
-            case Expr.Unary(var operator, var right) -> 
+            case Expr.Unary(var operator, var right) ->
                 evaluateUnary(operator, right);
-                
-            case Expr.Variable(var name) -> 
+            case Expr.Variable(var name) ->
                 evaluateVariable(name);
         };
     }
-    
-    // === Einzelne Evaluierungsmethoden ===
-    
+
+    // ===========================
+    // Expressions
+    // ===========================
+    private LoxValue evaluateAssign(Expr expr, Token name, Expr value) {
+        var val = evaluate(value);
+        Integer distance = locals.get(expr);
+
+        if (distance != null) {
+            environment.assignAt(distance, name, val);
+        } else {
+            globals.assign(name, val);
+        }
+        return val;
+    }
+
     private LoxValue evaluateBinary(Expr left, Token operator, Expr right) {
-        var leftVal = evaluate(left);
-        var rightVal = evaluate(right);
-        
+        var l = evaluate(left);
+        var r = evaluate(right);
+
         return switch (operator.type()) {
-            case BANG_EQUAL -> new LoxValue.Bool(!isEqual(leftVal, rightVal));
-            case EQUAL_EQUAL -> new LoxValue.Bool(isEqual(leftVal, rightVal));
-            
-            case GREATER, GREATER_EQUAL, LESS, LESS_EQUAL -> {
-                checkNumberOperands(operator, leftVal, rightVal);
-                var leftNum = (LoxValue.Num) leftVal;
-                var rightNum = (LoxValue.Num) rightVal;
-                
-                yield switch (operator.type()) {
-                    case GREATER -> new LoxValue.Bool(leftNum.value() > rightNum.value());
-                    case GREATER_EQUAL -> new LoxValue.Bool(leftNum.value() >= rightNum.value());
-                    case LESS -> new LoxValue.Bool(leftNum.value() < rightNum.value());
-                    case LESS_EQUAL -> new LoxValue.Bool(leftNum.value() <= rightNum.value());
-                    default -> throw new IllegalStateException("Unexpected operator");
-                };
-            }
-            
-            case MINUS -> {
-                checkNumberOperands(operator, leftVal, rightVal);
-                yield new LoxValue.Num(
-                    ((LoxValue.Num) leftVal).value() - ((LoxValue.Num) rightVal).value());
-            }
-            
-            case PLUS -> {
-                if (leftVal instanceof LoxValue.Num l && rightVal instanceof LoxValue.Num r) {
-                    yield new LoxValue.Num(l.value() + r.value());
-                }
-                if (leftVal instanceof LoxValue.Str l && rightVal instanceof LoxValue.Str r) {
-                    yield new LoxValue.Str(l.value() + r.value());
-                }
-                throw new RuntimeError(operator,
-                    "Operands must be two numbers or two strings.");
-            }
-            
-            case SLASH -> {
-                checkNumberOperands(operator, leftVal, rightVal);
-                yield new LoxValue.Num(
-                    ((LoxValue.Num) leftVal).value() / ((LoxValue.Num) rightVal).value());
-            }
-            
-            case STAR -> {
-                checkNumberOperands(operator, leftVal, rightVal);
-                yield new LoxValue.Num(
-                    ((LoxValue.Num) leftVal).value() * ((LoxValue.Num) rightVal).value());
-            }
-            
-            default -> throw new IllegalStateException("Unexpected operator: " + operator.type());
+            case BANG_EQUAL -> new LoxValue.Bool(!isEqual(l, r));
+            case EQUAL_EQUAL -> new LoxValue.Bool(isEqual(l, r));
+            case GREATER -> compare(operator, l, r, ">");
+            case GREATER_EQUAL -> compare(operator, l, r, ">=");
+            case LESS -> compare(operator, l, r, "<");
+            case LESS_EQUAL -> compare(operator, l, r, "<=");
+            case PLUS -> plus(operator, l, r);
+            case MINUS -> numberOp(operator, l, r, "-");
+            case STAR -> numberOp(operator, l, r, "*");
+            case SLASH -> numberOp(operator, l, r, "/");
+            default -> throw new IllegalStateException();
         };
     }
-    
+
     private LoxValue evaluateCall(Expr callee, Token paren, List<Expr> arguments) {
-        var calleeVal = evaluate(callee);
-        var args = arguments.stream()
-            .map(this::evaluate)
-            .toList();
-        
-        return switch (calleeVal) {
-            case LoxValue.Fn function -> {
-                if (args.size() != function.params().size()) {
-                    throw new RuntimeError(paren, 
-                        "Expected " + function.params().size() + " arguments but got " + args.size() + ".");
-                }
-                yield callFunction(function, args);
-            }
-            
-            case LoxValue.NativeFn nativeFn -> {
-                if (args.size() != nativeFn.arity()) {
-                    throw new RuntimeError(paren,
-                        "Expected " + nativeFn.arity() + " arguments but got " + args.size() + ".");
-                }
-                yield nativeFn.call(this, args);
-            }
-            
-            case LoxValue.Klass klass -> {
-                if (args.size() != 0 && klass.findMethod("init") == null) {
-                    throw new RuntimeError(paren,
-                        "Expected 0 arguments for class without initializer.");
-                }
-                yield instantiateClass(klass, args);
-            }
-            
-            default -> throw new RuntimeError(paren, "Can only call functions and classes.");
-        };
+        LoxValue calleeVal = evaluate(callee);
+        var args = arguments.stream().map(this::evaluate).toList();
+
+        // Korrektur: Prüfen ob der Wert das LoxCallable Interface besitzt
+        if (!(calleeVal instanceof LoxCallable callable)) {
+            throw new RuntimeError(paren, "Can only call functions and classes.");
+        }
+
+        if (args.size() != callable.arity()) {
+            throw new RuntimeError(
+                paren,
+                "Expected " + callable.arity() +
+                " arguments but got " + args.size() + "."
+            );
+        }
+
+        return callable.call((Object) this, args);
     }
-    
+
     private LoxValue evaluateGet(Expr object, Token name) {
         var obj = evaluate(object);
-        return switch (obj) {
-            case LoxValue.Instance instance -> instance.get(name);
-            default -> throw new RuntimeError(name, "Only instances have properties.");
-        };
+        if (obj instanceof LoxValue.Instance instance) {
+            return instance.get(name);
+        }
+        throw new RuntimeError(name, "Only instances have properties.");
     }
-    
+
     private LoxValue evaluateLiteral(Object value) {
-        return switch (value) {
-            case Double d -> new LoxValue.Num(d);
-            case String s -> new LoxValue.Str(s);
-            case Boolean b -> new LoxValue.Bool(b);
-            case null -> LoxValue.Nil.INSTANCE;
-            default -> throw new IllegalStateException("Unexpected literal type: " + value);
-        };
+        if (value == null) return LoxValue.Nil.INSTANCE;
+        if (value instanceof Double d) return new LoxValue.Num(d);
+        if (value instanceof String s) return new LoxValue.Str(s);
+        if (value instanceof Boolean b) return new LoxValue.Bool(b);
+        throw new IllegalStateException();
     }
-    
+
     private LoxValue evaluateLogical(Expr left, Token operator, Expr right) {
         var leftVal = evaluate(left);
-        
         if (operator.type() == TokenType.OR) {
-            if (isTruthy(leftVal)) return leftVal;
+            if (leftVal.isTruthy()) return leftVal;
         } else {
-            if (!isTruthy(leftVal)) return leftVal;
+            if (!leftVal.isTruthy()) return leftVal;
         }
-        
         return evaluate(right);
     }
-    
+
     private LoxValue evaluateSet(Expr object, Token name, Expr value) {
         var obj = evaluate(object);
-        return switch (obj) {
-            case LoxValue.Instance instance -> {
-                var val = evaluate(value);
-                instance.set(name, val);
-                yield val;
-            }
-            default -> throw new RuntimeError(name, "Only instances have fields.");
-        };
-    }
-    
-    private LoxValue evaluateSuper(Token keyword, Token method) {
-        var expr = new Expr.Super(keyword, method);
-        var distance = locals.get(expr);
-        
-        if (distance == null) {
-            throw new RuntimeError(keyword, "Cannot use 'super' outside of a class.");
+        if (obj instanceof LoxValue.Instance instance) {
+            var val = evaluate(value);
+            instance.set(name, val);
+            return val;
         }
-        
+        throw new RuntimeError(name, "Only instances have fields.");
+    }
+
+    private LoxValue evaluateSuper(Token keyword, Token method) {
+        int distance = locals.get(new Expr.Super(keyword, method));
         var superclass = (LoxValue.Klass) environment.getAt(distance, "super");
         var object = (LoxValue.Instance) environment.getAt(distance - 1, "this");
-        
-        var methodFunc = superclass.findMethod(method.lexeme());
-        if (methodFunc == null) {
-            throw new RuntimeError(method,
-                "Undefined property '" + method.lexeme() + "'.");
+
+        var fn = superclass.findMethod(method.lexeme());
+        if (fn == null) {
+            throw new RuntimeError(method, "Undefined property.");
         }
-        
-        return methodFunc.bind(object);
+        return fn.bind(object);
     }
-    
+
     private LoxValue evaluateThis(Token keyword) {
         return lookUpVariable(keyword, new Expr.This(keyword));
     }
-    
+
     private LoxValue evaluateUnary(Token operator, Expr right) {
-        var rightVal = evaluate(right);
-        
+        var r = evaluate(right);
+
         return switch (operator.type()) {
-            case BANG -> new LoxValue.Bool(!isTruthy(rightVal));
+            case BANG -> new LoxValue.Bool(!r.isTruthy());
             case MINUS -> {
-                checkNumberOperand(operator, rightVal);
-                yield new LoxValue.Num(-((LoxValue.Num) rightVal).value());
+                checkNumber(operator, r);
+                yield new LoxValue.Num(-((LoxValue.Num) r).value());
             }
-            default -> throw new IllegalStateException("Unexpected unary operator");
+            default -> throw new IllegalStateException();
         };
     }
-    
+
     private LoxValue evaluateVariable(Token name) {
         return lookUpVariable(name, new Expr.Variable(name));
     }
-    
-    // === Function Execution ===
-    
-    private LoxValue callFunction(LoxValue.Fn function, List<LoxValue> arguments) {
-        var environment = new Environment(function.closure());
-        
-        // Parameter binden
-        for (int i = 0; i < function.params().size(); i++) {
-            environment.define(function.params().get(i).lexeme(), arguments.get(i));
-        }
-        
-        try {
-            executeBlock(function.body(), environment);
-            
-            // Für Initializer immer 'this' zurückgeben
-            if (function.isInitializer()) {
-                return environment.get(new Token(TokenType.THIS, "this", null, -1));
-            }
-            
-            return LoxValue.Nil.INSTANCE;
-        } catch (Return returnValue) {
-            return function.isInitializer() 
-                ? environment.get(new Token(TokenType.THIS, "this", null, -1))
-                : returnValue.value;
+
+    // ===========================
+    // Helpers
+    // ===========================
+    private LoxValue lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        return (LoxValue)(
+            distance != null
+                ? environment.getAt(distance, name.lexeme())
+                : globals.get(name)
+        );
+    }
+
+    private boolean isEqual(LoxValue a, LoxValue b) {
+        if (a instanceof LoxValue.Nil) return b instanceof LoxValue.Nil;
+        return a.equals(b);
+    }
+
+    private void checkNumber(Token op, LoxValue v) {
+        if (!(v instanceof LoxValue.Num)) {
+            throw new RuntimeError(op, "Operand must be a number.");
         }
     }
-    
-    private LoxValue instantiateClass(LoxValue.Klass klass, List<LoxValue> arguments) {
-        var instance = new LoxValue.Instance(klass, new HashMap<>());
-        
-        var initializer = klass.findMethod("init");
-        if (initializer != null) {
-            var boundMethod = initializer.bind(instance);
-            callFunction(boundMethod, arguments);
-        } else if (!arguments.isEmpty()) {
-            throw new RuntimeError(null, "Expected 0 arguments for class without initializer.");
-        }
-        
-        return instance;
+
+    private LoxValue compare(Token op, LoxValue l, LoxValue r, String kind) {
+        checkNumber(op, l);
+        checkNumber(op, r);
+
+        double a = ((LoxValue.Num) l).value();
+        double b = ((LoxValue.Num) r).value();
+
+        return switch (kind) {
+            case ">" -> new LoxValue.Bool(a > b);
+            case ">=" -> new LoxValue.Bool(a >= b);
+            case "<" -> new LoxValue.Bool(a < b);
+            case "<=" -> new LoxValue.Bool(a <= b);
+            default -> throw new IllegalStateException();
+        };
     }
-    
-    // === Statement Execution ===
-    
+
+    private LoxValue numberOp(Token op, LoxValue l, LoxValue r, String kind) {
+        checkNumber(op, l);
+        checkNumber(op, r);
+
+        double a = ((LoxValue.Num) l).value();
+        double b = ((LoxValue.Num) r).value();
+
+        return switch (kind) {
+            case "-" -> new LoxValue.Num(a - b);
+            case "*" -> new LoxValue.Num(a * b);
+            case "/" -> new LoxValue.Num(a / b);
+            default -> throw new IllegalStateException();
+        };
+    }
+
+    private LoxValue plus(Token op, LoxValue l, LoxValue r) {
+        if (l instanceof LoxValue.Num a && r instanceof LoxValue.Num b) {
+            return new LoxValue.Num(a.value() + b.value());
+        }
+        if (l instanceof LoxValue.Str a && r instanceof LoxValue.Str b) {
+            return new LoxValue.Str(a.value() + b.value());
+        }
+        throw new RuntimeError(op, "Operands must be two numbers or two strings.");
+    }
+
+    // ===========================
+    // Statements
+    // ===========================
     private void execute(Stmt stmt) {
         switch (stmt) {
-            case Stmt.Block(var statements) -> 
-                executeBlock(statements, new Environment(environment));
-                
-            case Stmt.Class(var name, var superclass, var methods) -> 
-                executeClass(name, superclass, methods);
-                
-            case Stmt.Expression(var expr) -> 
+            case Stmt.Block(var stmts) ->
+                executeBlock(stmts, new Environment(environment));
+            case Stmt.Expression(var expr) ->
                 evaluate(expr);
-                
-            case Stmt.Function(var name, var params, var body) -> {
-                var function = new LoxValue.Fn(name, params, body, environment, false);
-                environment.define(name.lexeme(), function);
-            }
-                
-            case Stmt.If(var condition, var thenBranch, var elseBranch) -> {
-                if (isTruthy(evaluate(condition))) {
-                    execute(thenBranch);
-                } else if(elseBranch!=null) {
-                    execute(elseBranch);
-                }
-            }
-                
-            case Stmt.Print(var expr) -> 
+            case Stmt.Print(var expr) ->
                 System.out.println(evaluate(expr).stringify());
-                
-            case Stmt.Return(var keyword, var value) -> {
-                var returnValue = value != null ? evaluate(value) : LoxValue.Nil.INSTANCE;
-                throw new Return(returnValue);
+            case Stmt.Var(var name, var init) ->
+                environment.define(
+                    name.lexeme(),
+                    init != null ? evaluate(init) : LoxValue.Nil.INSTANCE
+                );
+            case Stmt.Return(_, var value) ->
+                throw new Return(
+                    value != null ? evaluate(value) : LoxValue.Nil.INSTANCE
+                );
+            case Stmt.If(var cond, var thenB, var elseB) -> {
+                if (evaluate(cond).isTruthy()) execute(thenB);
+                else if (elseB != null) execute(elseB);
             }
-                
-            case Stmt.Var(var name, var initializer) -> {
-                var value = initializer != null ? evaluate(initializer) : LoxValue.Nil.INSTANCE;
-                environment.define(name.lexeme(), value);
+            case Stmt.While(var cond, var body) -> {
+                while (evaluate(cond).isTruthy()) execute(body);
             }
-                
-            case Stmt.While(var condition, var body) -> {
-                while (isTruthy(evaluate(condition))) {
-                    execute(body);
-                }
+            case Stmt.Function(var name, var params, var body) -> {
+                var fn = new LoxValue.Fn(name, params, body, environment, false);
+                environment.define(name.lexeme(), fn);
             }
-        };
+            case Stmt.Class(var name, var superclassExpr, var methods) ->
+                executeClass(name, (Expr.Variable)superclassExpr, methods);
+        }
     }
-    
-    private void executeClass(Token name, Expr.Variable superclass, List<Stmt.Function> methods) {
-        // Superklasse evaluieren
-        LoxValue superValue = null;
-        if (superclass != null) {
-            superValue = evaluate(superclass);
-            if (!(superValue instanceof LoxValue.Klass)) {
-                throw new RuntimeError(superclass.name(),
-                    "Superclass must be a class.");
-            }
-        }
-        
-        // Klasse definieren (vorerst mit nil)
-        environment.define(name.lexeme(), LoxValue.Nil.INSTANCE);
-        
-        // Super-Umgebung bei Vererbung
-        Environment classEnvironment = environment;
-        if (superclass != null) {
-            classEnvironment = new Environment(environment);
-            classEnvironment.define("super", superValue);
-        }
-        
-        // Methoden sammeln
-        var methodMap = new HashMap<String, LoxValue.Fn>();
-        var previousEnv = environment;
-        
+
+    private void executeBlock(List<Stmt> statements, Environment newEnv) {
+        Environment previous = environment;
         try {
-            environment = classEnvironment;
-            
-            for (var method : methods) {
-                var isInitializer = method.name().lexeme().equals("init");
-                var function = new LoxValue.Fn(
-                    method.name(), method.params(), method.body(), environment, isInitializer);
-                methodMap.put(method.name().lexeme(), function);
-            }
+            environment = newEnv;
+            for (var stmt : statements) execute(stmt);
         } finally {
-            environment = previousEnv;
+            environment = previous;
         }
-        
-        // Klasse erstellen
-        var klass = new LoxValue.Klass(
-            name.lexeme(),
-            (LoxValue.Klass) superValue, 
-            methodMap
-        );
-        
+    }
+
+    private void executeClass(
+        Token name,
+        Expr.Variable superclassExpr,
+        List<Stmt.Function> methods
+    ) {
+        LoxValue.Klass superclass = null;
+
+        if (superclassExpr != null) {
+            var val = evaluate(superclassExpr);
+            if (!(val instanceof LoxValue.Klass k)) {
+                throw new RuntimeError(
+                    superclassExpr.name(),
+                    "Superclass must be a class."
+                );
+            }
+            superclass = k;
+        }
+
+        environment.define(name.lexeme(), LoxValue.Nil.INSTANCE);
+
+        if (superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", superclass);
+        }
+
+        var methodMap = new HashMap<String, LoxValue.Fn>();
+        for (var method : methods) {
+            boolean isInit = method.name().lexeme().equals("init");
+            var fn = new LoxValue.Fn(
+                method.name(),
+                method.params(),
+                method.body(),
+                environment,
+                isInit
+            );
+            methodMap.put(method.name().lexeme(), fn);
+        }
+
+        var klass = new LoxValue.Klass(name.lexeme(), superclass, methodMap);
+
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
+
         environment.assign(name, klass);
     }
-    
-    void executeBlock(List<Stmt> statements, Environment newEnvironment) {
-        var previous = this.environment;
+
+    // ===========================
+    // Function Call
+    // ===========================
+    public LoxValue callFunction(LoxValue.Fn function, List<LoxValue> arguments) {
+        var env = new Environment(function.closure());
+
+        for (int i = 0; i < function.params().size(); i++) {
+            env.define(
+                function.params().get(i).lexeme(),
+                arguments.get(i)
+            );
+        }
+
         try {
-            this.environment = newEnvironment;
-            for (var statement : statements) {
-                execute(statement);
+            executeBlock(function.body(), env);
+        } catch (Return ret) {
+            if (function.isInitializer()) {
+                return (LoxValue) function.closure().getAt(0, "this");
             }
-        } finally {
-            this.environment = previous;
+            return ret.value;
         }
-    }
-    
-    // === Helper Methods ===
-    
-    private LoxValue lookUpVariable(Token name, Expr expr) {
-        var distance = locals.get(expr);
-        return distance != null 
-            ? environment.getAt(distance, name.lexeme())
-            : globals.get(name);
-    }
-    
-    private boolean isTruthy(LoxValue value) {
-        return value.isTruthy();
-    }
-    
-    private boolean isEqual(LoxValue a, LoxValue b) {
-        return switch (a) {
-            case LoxValue.Nil() -> b instanceof LoxValue.Nil;
-            case LoxValue.Num(double d1) -> 
-                b instanceof LoxValue.Num(double value) && d1 == value;
-            case LoxValue.Str(String s1) -> 
-                b instanceof LoxValue.Str(String value) && s1.equals(value);
-            case LoxValue.Bool(boolean b1) -> 
-                b instanceof LoxValue.Bool(boolean value) && b1 == value;
-            default -> a.equals(b);
-        };
-    }
-    
-    private void checkNumberOperand(Token operator, LoxValue operand) {
-        if (!(operand instanceof LoxValue.Num)) {
-            throw new RuntimeError(operator, "Operand must be a number.");
+
+        if (function.isInitializer()) {
+            return (LoxValue) function.closure().getAt(0, "this");
         }
-    }
-    
-    private void checkNumberOperands(Token operator, LoxValue left, LoxValue right) {
-        if (!(left instanceof LoxValue.Num && right instanceof LoxValue.Num)) {
-            throw new RuntimeError(operator, "Operands must be numbers.");
-        }
+
+        return LoxValue.Nil.INSTANCE;
     }
 }
