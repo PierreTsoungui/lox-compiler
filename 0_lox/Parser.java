@@ -146,15 +146,15 @@ public class Parser {
         Stmt elseBranch = match(TokenType.ELSE) ? statement() : null;
         return new Stmt.If(condition, thenBranch, elseBranch);
     }
-
     private Stmt printStatement() {
-        var value = expression();
+        consume(TokenType.PRINT, "Expect 'print'.");
+        Expr value = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after value.");
         return new Stmt.Print(value);
     }
 
     private Stmt returnStatement() {
-        var keyword = previous();
+        Token keyword = consume(TokenType.RETURN, "Expect 'return'.");
         Expr value = !check(TokenType.SEMICOLON) ? expression() : null;
         consume(TokenType.SEMICOLON, "Expect ';' after return value.");
         return new Stmt.Return(keyword, value);
@@ -181,14 +181,25 @@ public class Parser {
     }
 
     private Stmt.Function function(String kind) {
-        var name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
-        consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
-        var parameters = parseSeparated(() -> consume(TokenType.IDENTIFIER, "Expect parameter name."),
-                                       TokenType.RIGHT_PAREN, TokenType.COMMA, MAX_PARAMS);
-        consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
-        var body = block();
+        Token name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
+         consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
+
+        List<Token> parameters = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= MAX_PARAMS) {
+                    error(peek(), "Too many parameters.");
+                }
+                parameters.add(consume(TokenType.IDENTIFIER, "Expect parameter name."));
+            } while (match(TokenType.COMMA));
+        }
+
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+         consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
+        List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
     }
+
 
     private List<Stmt> block() {
         var stmts = new ArrayList<Stmt>();
@@ -284,14 +295,22 @@ public class Parser {
     /* ---------------------------
        parseSeparated Helper
     --------------------------- */
-    private <T> List<T> parseSeparated(Supplier<T> elementSupplier, TokenType end, TokenType sep, int max) {
-        var elements = new ArrayList<T>();
+    private <T> List<T> parseSeparated(
+        Supplier<T> elementSupplier,
+        TokenType end,
+        TokenType sep,
+        int max
+    ) {
+        List<T> elements = new ArrayList<>();
         if (check(end)) return elements;
-        elements.add(elementSupplier.get());
-        while (!check(end) && match(sep)) {
-            if (elements.size() >= max) throw error(peek(), "Too many elements.");
-            elements.add(elementSupplier.get());
+
+        do {
+            if (elements.size() >= max) {
+            throw error(peek(), "Too many elements.");
         }
+        elements.add(elementSupplier.get());
+        } while (match(sep));
+
         return elements;
     }
 

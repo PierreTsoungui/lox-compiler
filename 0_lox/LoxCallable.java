@@ -9,6 +9,6 @@ import java.util.List;
  */
 public interface LoxCallable {
     int arity();
-    LoxValue call(Object interpreter, List<LoxValue> arguments);
+     LoxValue call(Object interpreter, List<LoxValue> arguments);
 }
 

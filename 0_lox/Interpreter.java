@@ -4,10 +4,10 @@ import java.util.Map;
 
 public class Interpreter {
 
-    // ===========================
-    // Return Exception
-    // ===========================
-    static class Return extends RuntimeException {
+    /* ===========================
+       Return Exception
+    =========================== */
+    public  static class Return extends RuntimeException {
         final LoxValue value;
         Return(LoxValue value) {
             super(null, null, false, false);
@@ -15,38 +15,41 @@ public class Interpreter {
         }
     }
 
-    // ===========================
-    // State
-    // ===========================
+    /* ===========================
+       State
+    =========================== */
     final Environment globals = new Environment();
-    private Environment environment = globals;
+    public Environment environment = globals;
     private final Map<Expr, Integer> locals = new HashMap<>();
 
-    // ===========================
-    // Constructor
-    // ===========================
+    /* ===========================
+       Constructor
+    =========================== */
     public Interpreter() {
-        // Native function: clock()
         globals.define("clock", new LoxCallable() {
             @Override
             public int arity() { return 0; }
 
             @Override
             public LoxValue call(Object interpreter, List<LoxValue> arguments) {
-                return new LoxValue.Num(System.currentTimeMillis() / 1000.0);
+                return new LoxValue.Num(
+                    System.currentTimeMillis() / 1000.0
+                );
             }
 
             @Override
-            public String toString() { return "<native fn>"; }
+            public String toString() {
+                return "<native fn>";
+            }
         });
     }
 
-    // ===========================
-    // Interpret
-    // ===========================
+    /* ===========================
+       Interpret
+    =========================== */
     public void interpret(List<Stmt> statements) {
         try {
-            for (var stmt : statements) {
+            for (Stmt stmt : statements) {
                 execute(stmt);
             }
         } catch (RuntimeError error) {
@@ -60,9 +63,9 @@ public class Interpreter {
         locals.put(expr, depth);
     }
 
-    // ===========================
-    // Evaluation
-    // ===========================
+    /* ===========================
+       Evaluation
+    =========================== */
     public LoxValue evaluate(Expr expr) {
         return switch (expr) {
             case Expr.Assign(var name, var value) ->
@@ -76,7 +79,7 @@ public class Interpreter {
             case Expr.Grouping(var expression) ->
                 evaluate(expression);
             case Expr.Literal(var value) ->
-                evaluateLiteral(value);
+                value == null ? LoxValue.Nil.INSTANCE : wrapLiteral(value);
             case Expr.Logical(var left, var operator, var right) ->
                 evaluateLogical(left, operator, right);
             case Expr.Set(var object, var name, var value) ->
@@ -84,19 +87,19 @@ public class Interpreter {
             case Expr.Super(var keyword, var method) ->
                 evaluateSuper(keyword, method);
             case Expr.This(var keyword) ->
-                evaluateThis(keyword);
+                lookUpVariable(keyword, expr);
             case Expr.Unary(var operator, var right) ->
                 evaluateUnary(operator, right);
             case Expr.Variable(var name) ->
-                evaluateVariable(name);
+                lookUpVariable(name, expr);
         };
     }
 
-    // ===========================
-    // Expressions
-    // ===========================
+    /* ===========================
+       Expressions
+    =========================== */
     private LoxValue evaluateAssign(Expr expr, Token name, Expr value) {
-        var val = evaluate(value);
+        LoxValue val = evaluate(value);
         Integer distance = locals.get(expr);
 
         if (distance != null) {
@@ -108,8 +111,8 @@ public class Interpreter {
     }
 
     private LoxValue evaluateBinary(Expr left, Token operator, Expr right) {
-        var l = evaluate(left);
-        var r = evaluate(right);
+        LoxValue l = evaluate(left);
+        LoxValue r = evaluate(right);
 
         return switch (operator.type()) {
             case BANG_EQUAL -> new LoxValue.Bool(!isEqual(l, r));
@@ -126,14 +129,24 @@ public class Interpreter {
         };
     }
 
-    private LoxValue evaluateCall(Expr callee, Token paren, List<Expr> arguments) {
+    private LoxValue evaluateCall(
+        Expr callee,
+        Token paren,
+        List<Expr> arguments
+    ) {
         LoxValue calleeVal = evaluate(callee);
-        var args = arguments.stream().map(this::evaluate).toList();
 
-        // Korrektur: Prüfen ob der Wert das LoxCallable Interface besitzt
         if (!(calleeVal instanceof LoxCallable callable)) {
-            throw new RuntimeError(paren, "Can only call functions and classes.");
+            throw new RuntimeError(
+                paren,
+                "Can only call functions and classes."
+            );
         }
+
+        List<LoxValue> args = arguments.stream()
+            .map(this::evaluate)
+            .map(v ->  v)
+            .toList();
 
         if (args.size() != callable.arity()) {
             throw new RuntimeError(
@@ -143,27 +156,20 @@ public class Interpreter {
             );
         }
 
-        return callable.call((Object) this, args);
+        return callable.call(this, args);
     }
 
     private LoxValue evaluateGet(Expr object, Token name) {
-        var obj = evaluate(object);
+        LoxValue obj = evaluate(object);
         if (obj instanceof LoxValue.Instance instance) {
             return instance.get(name);
         }
         throw new RuntimeError(name, "Only instances have properties.");
     }
 
-    private LoxValue evaluateLiteral(Object value) {
-        if (value == null) return LoxValue.Nil.INSTANCE;
-        if (value instanceof Double d) return new LoxValue.Num(d);
-        if (value instanceof String s) return new LoxValue.Str(s);
-        if (value instanceof Boolean b) return new LoxValue.Bool(b);
-        throw new IllegalStateException();
-    }
-
     private LoxValue evaluateLogical(Expr left, Token operator, Expr right) {
-        var leftVal = evaluate(left);
+        LoxValue leftVal = evaluate(left);
+
         if (operator.type() == TokenType.OR) {
             if (leftVal.isTruthy()) return leftVal;
         } else {
@@ -173,9 +179,9 @@ public class Interpreter {
     }
 
     private LoxValue evaluateSet(Expr object, Token name, Expr value) {
-        var obj = evaluate(object);
+        LoxValue obj = evaluate(object);
         if (obj instanceof LoxValue.Instance instance) {
-            var val = evaluate(value);
+            LoxValue val = evaluate(value);
             instance.set(name, val);
             return val;
         }
@@ -184,8 +190,10 @@ public class Interpreter {
 
     private LoxValue evaluateSuper(Token keyword, Token method) {
         int distance = locals.get(new Expr.Super(keyword, method));
-        var superclass = (LoxValue.Klass) environment.getAt(distance, "super");
-        var object = (LoxValue.Instance) environment.getAt(distance - 1, "this");
+        var superclass =
+            (LoxValue.Klass) environment.getAt(distance, "super");
+        var object =
+            (LoxValue.Instance) environment.getAt(distance - 1, "this");
 
         var fn = superclass.findMethod(method.lexeme());
         if (fn == null) {
@@ -194,12 +202,8 @@ public class Interpreter {
         return fn.bind(object);
     }
 
-    private LoxValue evaluateThis(Token keyword) {
-        return lookUpVariable(keyword, new Expr.This(keyword));
-    }
-
     private LoxValue evaluateUnary(Token operator, Expr right) {
-        var r = evaluate(right);
+        LoxValue r = evaluate(right);
 
         return switch (operator.type()) {
             case BANG -> new LoxValue.Bool(!r.isTruthy());
@@ -211,20 +215,26 @@ public class Interpreter {
         };
     }
 
-    private LoxValue evaluateVariable(Token name) {
-        return lookUpVariable(name, new Expr.Variable(name));
-    }
-
-    // ===========================
-    // Helpers
-    // ===========================
+    /* ===========================
+       Helpers
+    =========================== */
     private LoxValue lookUpVariable(Token name, Expr expr) {
         Integer distance = locals.get(expr);
-        return (LoxValue)(
+        Object value =
             distance != null
                 ? environment.getAt(distance, name.lexeme())
-                : globals.get(name)
-        );
+                : globals.get(name);
+
+        if (value instanceof LoxValue) {
+             return (LoxValue) value;
+        }
+    
+        // Wenn es ein LoxCallable ist, wrappe es
+        if (value instanceof LoxCallable callable) {
+             return new LoxValue.NativeFn(callable);
+        }
+    
+        throw new RuntimeError(name, "Undefined variable '" + name.lexeme() + "'.");
     }
 
     private boolean isEqual(LoxValue a, LoxValue b) {
@@ -238,7 +248,12 @@ public class Interpreter {
         }
     }
 
-    private LoxValue compare(Token op, LoxValue l, LoxValue r, String kind) {
+    private LoxValue compare(
+        Token op,
+        LoxValue l,
+        LoxValue r,
+        String kind
+    ) {
         checkNumber(op, l);
         checkNumber(op, r);
 
@@ -254,7 +269,12 @@ public class Interpreter {
         };
     }
 
-    private LoxValue numberOp(Token op, LoxValue l, LoxValue r, String kind) {
+    private LoxValue numberOp(
+        Token op,
+        LoxValue l,
+        LoxValue r,
+        String kind
+    ) {
         checkNumber(op, l);
         checkNumber(op, r);
 
@@ -276,13 +296,23 @@ public class Interpreter {
         if (l instanceof LoxValue.Str a && r instanceof LoxValue.Str b) {
             return new LoxValue.Str(a.value() + b.value());
         }
-        throw new RuntimeError(op, "Operands must be two numbers or two strings.");
+        throw new RuntimeError(
+            op,
+            "Operands must be two numbers or two strings."
+        );
     }
 
-    // ===========================
-    // Statements
-    // ===========================
-    private void execute(Stmt stmt) {
+    private LoxValue wrapLiteral(Object value) {
+        if (value instanceof Double d) return new LoxValue.Num(d);
+        if (value instanceof String s) return new LoxValue.Str(s);
+        if (value instanceof Boolean b) return new LoxValue.Bool(b);
+        throw new IllegalStateException();
+    }
+
+    /* ===========================
+       Statements
+    =========================== */
+    public  void execute(Stmt stmt) {
         switch (stmt) {
             case Stmt.Block(var stmts) ->
                 executeBlock(stmts, new Environment(environment));
@@ -293,11 +323,15 @@ public class Interpreter {
             case Stmt.Var(var name, var init) ->
                 environment.define(
                     name.lexeme(),
-                    init != null ? evaluate(init) : LoxValue.Nil.INSTANCE
+                    init != null
+                        ? evaluate(init)
+                        : LoxValue.Nil.INSTANCE
                 );
             case Stmt.Return(_, var value) ->
                 throw new Return(
-                    value != null ? evaluate(value) : LoxValue.Nil.INSTANCE
+                    value != null
+                        ? evaluate(value)
+                        : LoxValue.Nil.INSTANCE
                 );
             case Stmt.If(var cond, var thenB, var elseB) -> {
                 if (evaluate(cond).isTruthy()) execute(thenB);
@@ -307,19 +341,28 @@ public class Interpreter {
                 while (evaluate(cond).isTruthy()) execute(body);
             }
             case Stmt.Function(var name, var params, var body) -> {
-                var fn = new LoxValue.Fn(name, params, body, environment, false);
+                var fn = new LoxValue.Fn(
+                    name, params, body, environment, false
+                );
                 environment.define(name.lexeme(), fn);
             }
             case Stmt.Class(var name, var superclassExpr, var methods) ->
-                executeClass(name, (Expr.Variable)superclassExpr, methods);
+                executeClass(
+                    name,
+                    (Expr.Variable) superclassExpr,
+                    methods
+                );
         }
     }
 
-    private void executeBlock(List<Stmt> statements, Environment newEnv) {
+    private void executeBlock(
+        List<Stmt> statements,
+        Environment newEnv
+    ) {
         Environment previous = environment;
         try {
             environment = newEnv;
-            for (var stmt : statements) execute(stmt);
+            for (Stmt stmt : statements) execute(stmt);
         } finally {
             environment = previous;
         }
@@ -333,7 +376,7 @@ public class Interpreter {
         LoxValue.Klass superclass = null;
 
         if (superclassExpr != null) {
-            var val = evaluate(superclassExpr);
+            LoxValue val = evaluate(superclassExpr);
             if (!(val instanceof LoxValue.Klass k)) {
                 throw new RuntimeError(
                     superclassExpr.name(),
@@ -352,7 +395,9 @@ public class Interpreter {
 
         var methodMap = new HashMap<String, LoxValue.Fn>();
         for (var method : methods) {
-            boolean isInit = method.name().lexeme().equals("init");
+            boolean isInit =
+                method.name().lexeme().equals("init");
+
             var fn = new LoxValue.Fn(
                 method.name(),
                 method.params(),
@@ -363,7 +408,11 @@ public class Interpreter {
             methodMap.put(method.name().lexeme(), fn);
         }
 
-        var klass = new LoxValue.Klass(name.lexeme(), superclass, methodMap);
+        var klass = new LoxValue.Klass(
+            name.lexeme(),
+            superclass,
+            methodMap
+        );
 
         if (superclass != null) {
             environment = environment.enclosing;
@@ -372,32 +421,40 @@ public class Interpreter {
         environment.assign(name, klass);
     }
 
-    // ===========================
-    // Function Call
-    // ===========================
     public LoxValue callFunction(LoxValue.Fn function, List<LoxValue> arguments) {
-        var env = new Environment(function.closure());
-
+    Environment previous = environment;
+    
+    try {
+        // Neue Umgebung für den Funktionsaufruf
+        Environment environment = new Environment(function.closure());
+        
+        // Parameter binden
         for (int i = 0; i < function.params().size(); i++) {
-            env.define(
-                function.params().get(i).lexeme(),
+            environment.define(
+                function.params().get(i).lexeme(), 
                 arguments.get(i)
             );
         }
-
+        
+        // Funktionskörper ausführen
         try {
-            executeBlock(function.body(), env);
-        } catch (Return ret) {
+            executeBlock(function.body(), environment);
+        } catch (Return returnValue) {
+            // Bei Initializer immer "this" zurückgeben
             if (function.isInitializer()) {
                 return (LoxValue) function.closure().getAt(0, "this");
             }
-            return ret.value;
+            return returnValue.value;
         }
-
+        
+        // Bei Initializer immer "this" zurückgeben
         if (function.isInitializer()) {
             return (LoxValue) function.closure().getAt(0, "this");
         }
-
         return LoxValue.Nil.INSTANCE;
+        
+    } finally {
+        environment = previous;
     }
+}
 }

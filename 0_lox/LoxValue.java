@@ -5,7 +5,7 @@ import java.util.Map;
 public sealed interface LoxValue
         permits LoxValue.Nil, LoxValue.Bool, LoxValue.Num,
                 LoxValue.Str, LoxValue.Fn, LoxValue.Klass,
-                LoxValue.Instance {
+                LoxValue.Instance, LoxValue.NativeFn {
         String stringify();
         boolean isTruthy();
     // === Primitive Werte ===
@@ -120,6 +120,27 @@ public sealed interface LoxValue
 
         public void set(Token name, LoxValue value) {
             fields.put(name.lexeme(), value);
+        }
+    }
+    
+    // === Native Funktionen ===
+    record NativeFn(LoxCallable callable) implements LoxValue, LoxCallable {
+        public String stringify() {
+            return "<native fn>";
+        }
+        
+        public boolean isTruthy() {
+            return true;
+        }
+        
+        @Override
+        public int arity() {
+            return callable.arity();
+        }
+        
+        @Override
+        public LoxValue call(Object interpreter, List<LoxValue> arguments) {
+            return callable.call(interpreter, arguments);
         }
     }
 }

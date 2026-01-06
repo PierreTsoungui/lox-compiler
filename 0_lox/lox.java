@@ -84,5 +84,40 @@ public class Lox {
         System.err.println("[line " + line + "] Error" + where + ": " + message);
         hadError = true;
     }
+
+    public static void test() {
+        String source = """
+            var a = 10;
+            var b = 20;
+            print a + b;
+
+            fun greet(name) {
+                print "Hello, " + name + "!";
+            }
+
+        greet("Alice");
+
+        class Point {
+            init(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+
+            distance() {
+                return this.x * this.x + this.y * this.y;
+            }
+        }
+
+        var p = Point(3, 4);
+        print p.distance();
+
+        print clock();  // native function test
+        """;
+
+    System.out.println("=== Running Lox Test ===");
+    run(source);
+    System.out.println("=== Test Finished ===");
+    }
+
     
 }
