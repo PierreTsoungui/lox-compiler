@@ -44,7 +44,7 @@ public class Lox {
         }
     }
     
-    private static void run(String source) {
+    public static void run(String source) {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
         var parser = new Parser(tokens);
@@ -54,6 +54,7 @@ public class Lox {
         
         var resolver = new Resolver(interpreter);
         resolver.resolve(statements);
+        // (debugging info removed)
         
         if (hadError) return;
         
@@ -85,39 +86,5 @@ public class Lox {
         hadError = true;
     }
 
-    public static void test() {
-        String source = """
-            var a = 10;
-            var b = 20;
-            print a + b;
 
-            fun greet(name) {
-                print "Hello, " + name + "!";
-            }
-
-        greet("Alice");
-
-        class Point {
-            init(x, y) {
-                this.x = x;
-                this.y = y;
-            }
-
-            distance() {
-                return this.x * this.x + this.y * this.y;
-            }
-        }
-
-        var p = Point(3, 4);
-        print p.distance();
-
-        print clock();  // native function test
-        """;
-
-    System.out.println("=== Running Lox Test ===");
-    run(source);
-    System.out.println("=== Test Finished ===");
-    }
-
-    
 }

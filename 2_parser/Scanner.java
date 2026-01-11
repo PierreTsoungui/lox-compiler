@@ -19,7 +19,7 @@ public class Scanner {
 
 
     // --------------------------------------------
-    // 💡 Token
+    // Token
     // --------------------------------------------
 
     public record Token(TokenType type, String lexem, Object value, int line) {
@@ -91,7 +91,7 @@ public class Scanner {
     }
 
     // --------------------------------------------
-    // 💡 TokenPattern (inneres Enum)
+    //  TokenPattern (inneres Enum)
     // --------------------------------------------
     private static enum TokenPattern {
         NUMBER("(?<NUMBER>[0-9]+(\\.[0-9]+)?)",
@@ -238,6 +238,5 @@ public class Scanner {
             System.err.println("Fehler beim Lesen der Datei: " + e.getMessage());
         }
     }
-
    
 }

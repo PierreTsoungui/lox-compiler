@@ -9,11 +9,12 @@ import java.util.stream.Stream;
 
 
 /* ================= Token ================= */
-record Token(TokenType type, String lexem, Object value, int line) {
+ record Token(TokenType type, String lexem, Object value, int line) {
     @Override
     public String toString() {
         return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
     }
+
 }
 
 /* ================= TokenType ================= */
@@ -45,12 +46,12 @@ sealed interface Expr extends AstNode
     permits Expr.Assign, Expr.Binary, Expr.Call, Expr.Get, Expr.Set, Expr.Grouping,
             Expr.Literal, Expr.Logical, Expr.Super, Expr.This, Expr.Unary, Expr.Variable {
 
-   public record Assign(Token name, Expr value) implements Expr {
+    record Assign(Token name, Expr value) implements Expr {
         @Override public List<AstNode> children() { return List.of(value); }
         @Override public String label() { return "Assign"; }
     }
 
-   public record Binary(Expr left, Token operator, Expr right) implements Expr {
+    record Binary(Expr left, Token operator, Expr right) implements Expr {
         @Override public List<AstNode> children() { return List.of(left,right); }
         @Override public String label() { return "Binary:"+operator.lexem(); }
     }

@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,7 +21,7 @@ public class Interpreter {
     =========================== */
     final Environment globals = new Environment();
     public Environment environment = globals;
-    private final Map<Expr, Integer> locals = new HashMap<>();
+    private final Map<Expr, Integer> locals = new IdentityHashMap<>();
 
     /* ===========================
        Constructor
@@ -105,7 +106,7 @@ public class Interpreter {
         if (distance != null) {
             environment.assignAt(distance, name, val);
         } else {
-            globals.assign(name, val);
+            environment.assign(name, val);
         }
         return val;
     }
@@ -220,21 +221,23 @@ public class Interpreter {
     =========================== */
     private LoxValue lookUpVariable(Token name, Expr expr) {
         Integer distance = locals.get(expr);
+        
+
         Object value =
             distance != null
                 ? environment.getAt(distance, name.lexeme())
-                : globals.get(name);
+                : environment.get(name);
 
-        if (value instanceof LoxValue) {
-             return (LoxValue) value;
-        }
-    
-        // Wenn es ein LoxCallable ist, wrappe es
-        if (value instanceof LoxCallable callable) {
-             return new LoxValue.NativeFn(callable);
-        }
-    
-        throw new RuntimeError(name, "Undefined variable '" + name.lexeme() + "'.");
+           if (value instanceof LoxValue) {
+               return (LoxValue) value;
+           }
+
+           // Wenn es ein LoxCallable ist, wrappe es
+            if (value instanceof LoxCallable callable) {
+                return new LoxValue.NativeFn(callable);
+            }
+
+            throw new RuntimeError(name, "Undefined variable '" + name.lexeme() + "'.");
     }
 
     private boolean isEqual(LoxValue a, LoxValue b) {

@@ -9,7 +9,7 @@ public class Parser {
     private static final int MAX_ARGS = 255;
     private static final int MAX_PARAMS = 255;
 
-   public Parser(List<Token> tokens) {
+    public Parser(List<Token> tokens) {
         this.tokens = tokens;
     }
 
@@ -35,23 +35,14 @@ public class Parser {
     --------------------------- */
     private Stmt declaration() {
         try {
-            return switch (nextDeclKind()) {
-                case CLASS -> classDeclaration();
-                case FUN   -> function("function");
-                case VAR   -> varDeclaration();
-                case NONE  -> statement();
-            };
+            if (match(TokenType.CLASS)) return classDeclaration();
+            if (match(TokenType.FUN)) return function("function");
+            if (match(TokenType.VAR)) return varDeclaration();
+            return statement();
         } catch (ParseError e) {
             synchronize();
             return null;
         }
-    }
-
-    private DeclKind nextDeclKind() {
-        if (checkAndAdvance(TokenType.CLASS)) return DeclKind.CLASS;
-        if (checkAndAdvance(TokenType.FUN)) return DeclKind.FUN;
-        if (checkAndAdvance(TokenType.VAR)) return DeclKind.VAR;
-        return DeclKind.NONE;
     }
 
     private Stmt classDeclaration() {
@@ -71,74 +62,65 @@ public class Parser {
     }
 
     private Stmt statement() {
-        return switch (peek().type()) {
-            case FOR -> forStatement();
-            case IF -> ifStatement();
-            case PRINT -> printStatement();
-            case RETURN -> returnStatement();
-            case WHILE -> whileStatement();
-            case LEFT_BRACE -> new Stmt.Block(block());
-            default -> expressionStatement();
-        };
+        if (match(TokenType.FOR)) return forStatement();
+        if (match(TokenType.IF)) return ifStatement();
+        if (match(TokenType.PRINT)) return printStatement();
+        if (match(TokenType.RETURN)) return returnStatement();
+        if (match(TokenType.WHILE)) return whileStatement();
+        if (match(TokenType.LEFT_BRACE)) return new Stmt.Block(block());
+        return expressionStatement();
+    }
+private Stmt forStatement() {
+    consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+
+    // Initializer
+    Stmt initializer;
+    if (match(TokenType.SEMICOLON)) {
+        initializer = null;
+    } else if (match(TokenType.VAR)) {
+        initializer = varDeclaration();
+    } else {
+        initializer = expressionStatement();
     }
 
-    private Stmt forStatement() {
-        consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
-        
-        // Initializer
-        final Stmt initializer;
-        if (match(TokenType.SEMICOLON)) {
-            initializer = null;
-        } else if (match(TokenType.VAR)) {
-            initializer = varDeclaration();
-        } else {
-            initializer = expressionStatement();
-        }
-        
-        // Condition
-        final Expr condition;
-        if (!check(TokenType.SEMICOLON)) {
-            condition = expression();
-        } else {
-            condition = null;
-        }
-        consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
-        
-        // Increment
-        final Expr increment;
-        if (!check(TokenType.RIGHT_PAREN)) {
-            increment = expression();
-        } else {
-            increment = null;
-        }
-        consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
-        
-        var body = statement();
+    // Condition
+    Expr condition = !check(TokenType.SEMICOLON) ? expression() : null;
+    consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
 
-        // Add increment if present
-        if (increment != null) {
-            body = new Stmt.Block(Arrays.asList(
-                body,
-                new Stmt.Expression(increment)
-            ));
-        }
-        
-        // Add while loop with condition
-        if (condition != null) {
-            body = new Stmt.While(condition, body);
+    // Increment
+    Expr increment = !check(TokenType.RIGHT_PAREN) ? expression() : null;
+    consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    // Body
+    Stmt body = statement();
+
+    // Inkrement in den Body einfügen
+    if (increment != null) {
+        if (body instanceof Stmt.Block b) {
+            var newStmts = new ArrayList<Stmt>(b.statements());
+            newStmts.add(new Stmt.Expression(increment));
+            body = new Stmt.Block(newStmts);
         } else {
-            body = new Stmt.While(new Expr.Literal(true), body);
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
         }
-        
-        // Add initializer if present
-        if (initializer != null) {
-            body = new Stmt.Block(Arrays.asList(initializer, body));
-        }
-        
-        return body;
     }
+
+    // While-Schleife mit Bedingung (oder true)
+    Stmt whileLoop = new Stmt.While(
+        condition != null ? condition : new Expr.Literal(true),
+        body
+    );
+
+    // Initializer ausführen, aber **kein neues Environment**, nur als Block mit While
+    if (initializer != null) {
+        return new Stmt.Block(Arrays.asList(initializer, whileLoop));
+    }
+
+    return whileLoop;
+}
 
     private Stmt ifStatement() {
+        // 'if' wurde bereits von statement() gematcht
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
         Expr condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
@@ -146,21 +128,23 @@ public class Parser {
         Stmt elseBranch = match(TokenType.ELSE) ? statement() : null;
         return new Stmt.If(condition, thenBranch, elseBranch);
     }
+    
     private Stmt printStatement() {
-        consume(TokenType.PRINT, "Expect 'print'.");
+    
         Expr value = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after value.");
         return new Stmt.Print(value);
     }
 
     private Stmt returnStatement() {
-        Token keyword = consume(TokenType.RETURN, "Expect 'return'.");
+        Token keyword = previous(); 
         Expr value = !check(TokenType.SEMICOLON) ? expression() : null;
         consume(TokenType.SEMICOLON, "Expect ';' after return value.");
         return new Stmt.Return(keyword, value);
     }
 
     private Stmt varDeclaration() {
+        // 'var' wurde bereits von declaration() gematcht
         var name = consume(TokenType.IDENTIFIER, "Expect variable name.");
         Expr initializer = match(TokenType.EQUAL) ? expression() : null;
         consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
@@ -168,10 +152,12 @@ public class Parser {
     }
 
     private Stmt whileStatement() {
+        // 'while' wurde bereits von statement() gematcht
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
         var condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
-        return new Stmt.While(condition, statement());
+        var body = statement();
+        return new Stmt.While(condition, body);
     }
 
     private Stmt expressionStatement() {
@@ -182,7 +168,7 @@ public class Parser {
 
     private Stmt.Function function(String kind) {
         Token name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
-         consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
+        consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
 
         List<Token> parameters = new ArrayList<>();
         if (!check(TokenType.RIGHT_PAREN)) {
@@ -195,15 +181,17 @@ public class Parser {
         }
 
         consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
-         consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
+        consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
         List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
     }
 
-
     private List<Stmt> block() {
         var stmts = new ArrayList<Stmt>();
-        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) stmts.add(declaration());
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+            var decl = declaration();
+            if (decl != null) stmts.add(decl);
+        }
         consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
         return stmts;
     }
@@ -269,27 +257,26 @@ public class Parser {
     }
 
     private Expr primary() {
-        return switch (peek().type()) {
-            case FALSE -> { advance(); yield new Expr.Literal(false); }
-            case TRUE -> { advance(); yield new Expr.Literal(true); }
-            case NIL -> { advance(); yield new Expr.Literal(null); }
-            case NUMBER, STRING -> { advance(); yield new Expr.Literal(previous().literal()); } // Geändert: value() -> literal()
-            case SUPER -> { 
-                advance(); 
-                var kw = previous(); 
-                consume(TokenType.DOT, "Expect '.' after 'super'."); 
-                yield new Expr.Super(kw, consume(TokenType.IDENTIFIER, "Expect superclass method name.")); 
-            }
-            case THIS -> { advance(); yield new Expr.This(previous()); }
-            case IDENTIFIER -> { advance(); yield new Expr.Variable(previous()); }
-            case LEFT_PAREN -> { 
-                advance(); 
-                var expr = expression(); 
-                consume(TokenType.RIGHT_PAREN, "Expect ')' after expression."); 
-                yield new Expr.Grouping(expr); 
-            }
-            default -> throw error(peek(), "Expect expression.");
-        };
+        if (match(TokenType.FALSE)) return new Expr.Literal(false);
+        if (match(TokenType.TRUE)) return new Expr.Literal(true);
+        if (match(TokenType.NIL)) return new Expr.Literal(null);
+        if (match(TokenType.NUMBER, TokenType.STRING)) {
+            return new Expr.Literal(previous().literal());
+        }
+        if (match(TokenType.SUPER)) {
+            var keyword = previous();
+            consume(TokenType.DOT, "Expect '.' after 'super'.");
+            var method = consume(TokenType.IDENTIFIER, "Expect superclass method name.");
+            return new Expr.Super(keyword, method);
+        }
+        if (match(TokenType.THIS)) return new Expr.This(previous());
+        if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
+        if (match(TokenType.LEFT_PAREN)) {
+            var expr = expression();
+            consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
+            return new Expr.Grouping(expr);
+        }
+        throw error(peek(), "Expect expression.");
     }
 
     /* ---------------------------
@@ -306,9 +293,9 @@ public class Parser {
 
         do {
             if (elements.size() >= max) {
-            throw error(peek(), "Too many elements.");
-        }
-        elements.add(elementSupplier.get());
+                throw error(peek(), "Too many elements.");
+            }
+            elements.add(elementSupplier.get());
         } while (match(sep));
 
         return elements;
@@ -323,14 +310,6 @@ public class Parser {
                 advance(); 
                 return true; 
             }
-        }
-        return false; 
-    }
-    
-    private boolean checkAndAdvance(TokenType type) { 
-        if (check(type)) { 
-            advance(); 
-            return true; 
         }
         return false; 
     }
