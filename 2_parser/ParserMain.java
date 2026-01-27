@@ -73,7 +73,7 @@ sealed interface Expr extends AstNode
     record Set(Expr object, Token name, Expr value) implements Expr {
         @Override
         public List<AstNode> children() {
-            return List.of(object, value); // Beide Kinder wichtig für Traversal
+            return List.of(object, value); 
         }
 
         @Override
@@ -938,7 +938,7 @@ public class ParserMain {
             return prog.declarations();
         } else {
             System.err.println("Parsing Error: " );
-            return List.of(); // leere Liste statt null
+            return List.of(); 
     }
 }
 
