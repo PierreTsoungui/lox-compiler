@@ -183,12 +183,12 @@ class Upvalue {
 }
 // === SmartAssembler Implementation ===
 class SmartAssembler {
-    // Compiler State Stack (für verschachtelte Funktionen)
+
     private final Deque<CompilerState> compilers = new ArrayDeque<>();
     private final Set<String> globals = new HashSet<>();
 
     public SmartAssembler() {
-        // Start mit global/script Compiler
+        
         compilers.push(new CompilerState(null, FunctionType.SCRIPT));
     }
 
@@ -237,7 +237,7 @@ class SmartAssembler {
     public SmartAssembler and(Consumer<SmartAssembler> left,
                           Consumer<SmartAssembler> right) {
          left.accept(this);
-        int jump = emitJumpIfFalse(); // short-circuit
+        int jump = emitJumpIfFalse();
         right.accept(this);
         patchJump(jump);
         return this;
@@ -245,29 +245,29 @@ class SmartAssembler {
 
         // Logical OR
     public SmartAssembler or(Consumer<SmartAssembler> left, Consumer<SmartAssembler> right) {
-        left.accept(this);                  // linken Ausdruck auswerten
-        int jumpIfTrue = emitJumpIfFalse(); // invertiert: "wenn false, springe weiter"
+        left.accept(this);                  
+        int jumpIfTrue = emitJumpIfFalse();
     
-        int jumpOverRight = emitJump();    // über rechten Ausdruck springen
+        int jumpOverRight = emitJump();    
 
-        patchJump(jumpIfTrue);             // linke false springt hier zum rechten Ausdruck
+        patchJump(jumpIfTrue);             
 
-        right.accept(this);                // rechten Ausdruck auswerten
+        right.accept(this);                
 
-         patchJump(jumpOverRight);          // danach über den rechten Ausdruck springen
+         patchJump(jumpOverRight);         
 
          return this;
     }
 
       // --- Jump / Branch Helpers ---
     public int emitJumpIfFalse() {
-        emit(new Op.JumpIfFalse(0)); // Platzhalter
-        return compilers.peek().code.size() - 1; // Position merken
+        emit(new Op.JumpIfFalse(0));
+        return compilers.peek().code.size() - 1;
     }
 
     public int emitJump() {
-        emit(new Op.Jump(0)); // Platzhalter
-      return compilers.peek().code.size() - 1; // Position merken
+        emit(new Op.Jump(0)); 
+      return compilers.peek().code.size() - 1;
     }
 
     public void patchJump(int pos) {
@@ -284,7 +284,7 @@ class SmartAssembler {
       
     // Anfang einer Schleife merken
     public int emitLoopStart() {
-        return compilers.peek().code.size(); // Speicher Position als Start
+        return compilers.peek().code.size(); 
     }
 
         // Sprung zurück zum Anfang der Schleife
@@ -343,7 +343,7 @@ class SmartAssembler {
         CompilerState current = compilers.peek();
 
         if (current.scopeDepth > 0) {
-            // Lokale Variable prüfen auf Duplicate innerhalb des Blocks
+            
             for (Local local : current.locals) {
                  if (local.depth == current.scopeDepth && local.name.equals(name)) {
                     throw new RuntimeException(
@@ -357,8 +357,8 @@ class SmartAssembler {
         } else {
             // Global: einfach DefGlobal + SetGlobal
             globals.add(name);
-            emit(new Op.DefGlobal(name));   // Erstmal definieren (VM merkt sich Slot)
-           //emit(new Op.SetGlobal(name));   // Wert setzen
+            emit(new Op.DefGlobal(name));   
+           
         }
 
         return this;
@@ -382,42 +382,7 @@ class SmartAssembler {
         return this;
     }
 
-    // Funktionen & Closures
-    public SmartAssembler fun(String name, int arity, Consumer<SmartAssembler> body) {
-        // 1. Funktion im aktuellen Scope deklarieren
-        var(name); 
         
-        // 2. Neuen Compiler starten
-        CompilerState current = compilers.peek();
-        CompilerState fnCompiler = new CompilerState(current, FunctionType.FUNCTION);
-        fnCompiler.functionName = name;
-        fnCompiler.arity = arity;
-        
-        // Argumente als Locals registrieren (Slots 1..n)
-        // Slot 0 ist reserviert (für closure selbst oder this)
-        fnCompiler.addLocal(""); // Slot 0 reservieren
-        for(int i=0; i<arity; i++) fnCompiler.addLocal("arg" + i); // Dummy names
-        
-        compilers.push(fnCompiler);
-        
-        // 3. Body kompilieren
-        body.accept(this);
-        emit(new Op.Const(null)); // Implizit return nil
-        emit(new Op.Return());
-        
-        // 4. Compiler beenden & "CompiledFunction" bauen
-        compilers.pop();
-        CompiledFunction compiledFn = new CompiledFunction(name, arity, fnCompiler.code);
-        
-        // 5. CLOSURE OpCode im PARENT emitten
-        // Dieser OpCode enthält Instruktionen, wie die Upvalues zu fangen sind
-        current.code.add(new Op.Closure(compiledFn, fnCompiler.upvalues));
-        
-        return this;
-    }
-
-
-            // In SmartAssembler.java - NUR DIESE METHODE BEHALTEN:
     public SmartAssembler fun(String name, List<String> paramNames, Consumer<SmartAssembler> body) {
         int arity = paramNames.size();
              // 2. Neuen Compiler starten
@@ -468,37 +433,37 @@ class SmartAssembler {
     // 1. Klasse erzeugen
     emit(new Op.Class(name));
 
-    // 2. Scope für `super` falls nötig
+    
     if (superClassName != null) {
         beginScope();
         get(superClassName);
         var("super");
     }
 
-    // 3. Methoden definieren
+
     body.accept(this);
 
-    // 4. super-Scope schließen
+
     if (superClassName != null) {
         endScope();
     }
 
-    // 5. Klasse in globale Variable speichern
+    
     set(name);
 
     return this;
 }
 
     public SmartAssembler getSuper(String method) {
-        get("this");   // Receiver
-        get("super");  // Superklasse (Upvalue!)
+        get("this");
+        get("super");  
         emit(new Op.GetSuper(method));
         return this;
     }
 
     
     public SmartAssembler method(String name, int arity, Consumer<SmartAssembler> body) {
-        // Ähnlich wie fun, aber FunctionType.METHOD und Slot 0 = "this"
+        
         CompilerState current = compilers.peek();
         CompilerState methodCompiler = new CompilerState(current, FunctionType.METHOD);
         methodCompiler.functionName = name;
@@ -509,13 +474,13 @@ class SmartAssembler {
         compilers.push(methodCompiler);
         body.accept(this);
         if (!(methodCompiler.code.getLast() instanceof Op.Return)) {
-             emit(new Op.GetLocal(0)); // this zurückgeben (wichtig für init!)
+             emit(new Op.GetLocal(0)); 
              emit(new Op.Return());
         }
         compilers.pop();
         
         CompiledFunction fn = new CompiledFunction(name, arity, methodCompiler.code);
-        // Method OpCode: Binde Closure an Klasse (Stack Top)
+        
         current.code.add(new Op.Closure(fn, methodCompiler.upvalues));
         emit(new Op.Method(name));
         return this;
@@ -537,7 +502,7 @@ class SmartAssembler {
          // Slot 0 = this
         methodCompiler.addLocal("this");
 
-        // Slots 1..n = echte Parameternamen
+    
         for (String param : paramNames) {
              methodCompiler.addLocal(param);
         }
@@ -545,7 +510,7 @@ class SmartAssembler {
         compilers.push(methodCompiler);
         body.accept(this);
 
-        // implizites return this für init
+        /
         if (methodCompiler.code.isEmpty() || !(methodCompiler.code.getLast() instanceof Op.Return)) {
             emit(new Op.GetLocal(0));
             emit(new Op.Return());
@@ -575,8 +540,8 @@ class SmartAssembler {
         c.scopeDepth--;
         // Locals poppen & Upvalues schließen
         while (!c.locals.isEmpty() && c.locals.getLast().depth > c.scopeDepth) {
-            emit(new Op.CloseUpval()); //  für Closures!
-            emit(new Op.Pop());        //  für Stack!
+            emit(new Op.CloseUpval()); 
+            emit(new Op.Pop());       
             c.locals.removeLast();
         }
     }
@@ -600,7 +565,7 @@ class SmartAssembler {
             emit(canAssign ? new Op.SetUpval(arg) : new Op.GetUpval(arg));
             return;
         }
-          boolean existsGlobally = globals.contains(name); // du musst globale Variablen tracken
+          boolean existsGlobally = globals.contains(name);
         if (!canAssign && !existsGlobally) {
             throw new RuntimeException("Variable '" + name + "' nicht definiert!");
          }
@@ -615,19 +580,19 @@ class SmartAssembler {
         return -1;
     }
 
-    // Das ist der kniffligste Teil von `clox` in Java nachgebaut
+    
     private int resolveUpvalue(CompilerState c, String name) {
         if (c.enclosing == null) return -1;
 
-        // Suche im Parent (ist es dort lokal?)
+        // Suche im Parent 
         int local = resolveLocal(c.enclosing, name);
         if (local != -1) {
-            // Gefunden! Im Parent ist es lokal. Wir capturen es.
+            
             c.enclosing.locals.get(local).isCaptured = true;
             return addUpvalue(c, local, true);
         }
 
-        // Suche im Parent (ist es dort schon ein Upvalue?)
+        
         int upvalue = resolveUpvalue(c.enclosing, name);
         if (upvalue != -1) {
             return addUpvalue(c, upvalue, false);
@@ -637,7 +602,7 @@ class SmartAssembler {
     }
 
     private int addUpvalue(CompilerState c, int index, boolean isLocal) {
-        // Upvalue Liste checken (Deduplication)
+        
         for (int i = 0; i < c.upvalues.size(); i++) {
             UpvalueDescriptor up = c.upvalues.get(i);
             if (up.index() == index && up.isLocal() == isLocal) return i;
@@ -660,7 +625,7 @@ class SmartAssembler {
         CompilerState enclosing;
         List<Op> code = new ArrayList<>();
         List<Local> locals = new ArrayList<>();
-        List<UpvalueDescriptor> upvalues = new ArrayList<>(); // Die "Inputs" für das Closure
+        List<UpvalueDescriptor> upvalues = new ArrayList<>(); 
         int scopeDepth = 0;
         FunctionType type;
         String functionName = "";
