@@ -90,3 +90,54 @@ Korrekte Token-Liste für Variablen, Zahlen, Operatoren, Strings, Keywords und E
 
 *Stand: 8. November 2025*  
 Der Compiler befindet sich aktuell in der **Compiler-Bauphase**. Scanner und VM/Assembler sind einsatzbereit; der Fokus liegt derzeit auf der **Parser-Implementierung** und der Integration aller Komponenten.
+
+
+Beschreibung
+- Die Implementierung in `2_parser/Scanner.java` verwendet eine Menge von regulären Ausdrücken (Enum `TokenPattern`), um Token im Quelltext zu erkennen. Jeder Pattern-Eintrag besitzt einen Handler, der beim Treffer ein `Token` erzeugt oder Seitenwirkungen (z. B. Zeilenanzahl erhöhen, Kommentar überspringen) ausführt.
+
+Wesentliche Features
+- Erkennung von Keywords, Identifiers, Zahlen (inkl. optionaler Dezimalstellen), Strings, Operatoren und Separatoren.
+- Zeilenorientierte Fehlerausgabe bei unbekannten Zeichen und ein lokales Error-Flag, das die Tokenisierung bei schwerwiegenden Fehlern abbricht.
+- Trennung von Pattern-Definition (`TokenPattern`) und Token-Handling (Handler als `BiConsumer`).
+
+Integration
+- Die Scanner-Ausgabe ist eine Liste von `Token`-Records (`type`, `lexem`, `value`, `line`), die direkt an den Parser übergeben werden kann. Die `TokenType`-Maps (`keywords`, `op`, `sep`) stellen die Zuordnung von Lexemen zu Token-Typen bereit.
+
+Selektoren (Dokumentations-Builder)
+- `file:2_parser/Scanner.java`
+- `method:2_parser/Scanner.java::Scanner.tokenize()`
+
+Beispiel: Lokaler Testlauf
+- Ich habe einen kleinen Test-Runner (`TestScannerRunner.java`) angelegt, der `Scanner.test(...)` mit einer kurzen Eingabe aufruft. Zum Kompilieren und Ausführen in `2_parser`:
+
+```powershell
+cd 2_parser
+javac Scanner.java TestScannerRunner.java
+java TestScannerRunner
+```
+
+Beispielausgabe (für Eingabe: `var x = 42; print x;\nfun greet() { print "hello"; }\n// a comment`)
+
+```text
+TOKEN(VAR, var, null) on line 1
+TOKEN(IDENTIFIER, x, null) on line 1
+TOKEN(EQUAL, =, null) on line 1
+TOKEN(NUMBER, 42, 42.0) on line 1
+TOKEN(SEMICOLON, ;, null) on line 1
+TOKEN(PRINT, print, null) on line 1
+TOKEN(IDENTIFIER, x, null) on line 1
+TOKEN(SEMICOLON, ;, null) on line 1
+TOKEN(FUN, fun, null) on line 2
+TOKEN(IDENTIFIER, greet, null) on line 2
+TOKEN(LEFT_PAREN, (, null) on line 2
+TOKEN(RIGHT_PAREN, ), null) on line 2
+TOKEN(LEFT_BRACE, {, null) on line 2
+TOKEN(PRINT, print, null) on line 2
+TOKEN(STRING, "hello", hello) on line 2
+TOKEN(SEMICOLON, ;, null) on line 2
+TOKEN(RIGHT_BRACE, }, null) on line 2
+TOKEN(EOF, , null) on line 4
+```
+
+Hinweis
+- Auf Wunsch kann ich den Scanner‑Abschnitt weiter ausbauen: z. B. detaillierte Erklärung der wichtigsten `TokenPattern`-Regexes, Tests für Float-Erkennung, oder die automatische Einbettung der Token-Ausgabe in die Dokumentation als echtes Snippet aus dem Build‑Schritt.
