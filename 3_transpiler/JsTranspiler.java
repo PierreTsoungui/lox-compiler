@@ -52,10 +52,12 @@ public class JsTranspiler {
             case Stmt.Function f -> {
                 String prevFunc = currentFunction; currentFunction = f.name().lexem();
                 functions.put(currentFunction, f.params().size());
+                scopes.peek().add(currentFunction);
                 emitIndent(); out.append("function ").append(currentFunction).append("(");
                 for (int j=0;j<f.params().size();j++){if(j>0) out.append(", "); out.append(f.params().get(j).lexem());}
                 out.append("){\n"); indent++;
                 scopes.push(new HashSet<>());
+                scopes.peek().add(currentFunction);
                 for (var p : f.params()) scopes.peek().add(p.lexem());
                 for (Stmt s : f.body()) emitStmt(s);
                 scopes.pop(); indent--; emitIndent(); out.append("}\n");
@@ -64,19 +66,33 @@ public class JsTranspiler {
             case Stmt.Class c -> {
                 String prevClass = currentClass; currentClass = c.name().lexem();
                 classes.add(currentClass);
+                scopes.peek().add(currentClass);
                 emitIndent(); out.append("class ").append(currentClass);
                 if (c.superClass()!=null) out.append(" extends ").append(c.superClass().name().lexem());
                 out.append("{\n"); indent++;
+
                 for (Stmt.Function m : c.methods()) {
-                    emitIndent(); out.append(m.name().lexem()).append("(");
+                    String prevFunc = currentFunction;
+                    currentFunction = m.name().lexem();
+                    String methodName = m.name().lexem();
+                    if (methodName.equals("init")) methodName = "constructor";
+
+                    emitIndent();
+                    out.append(methodName).append("(");
                     for (int j=0;j<m.params().size();j++){if(j>0) out.append(", "); out.append(m.params().get(j).lexem());}
-                    out.append("){\n"); indent++;
-                    scopes.push(new HashSet<>()); scopes.peek().add("this");
+                    out.append("){\n");
+
+                    indent++;
+                    scopes.push(new HashSet<>()); 
+                    scopes.peek().add("this");
                     for (var p : m.params()) scopes.peek().add(p.lexem());
                     for (Stmt s : m.body()) emitStmt(s);
                     scopes.pop(); indent--; emitIndent(); out.append("}\n");
+                    currentFunction = prevFunc;
                 }
-                indent--; emitIndent(); out.append("}\n"); currentClass = prevClass;
+
+                indent--; emitIndent(); out.append("}\n");
+                currentClass = prevClass;
             }
             case Stmt.Return r -> {
                 if (currentFunction==null) warnings.add("Return statement outside function");
@@ -93,7 +109,10 @@ public class JsTranspiler {
                 Object v = l.value();
                 if (v==null) out.append("null");
                 else if (v instanceof String s) out.append("\"").append(s.replace("\"","\\\"")).append("\"");
-                else out.append(v);
+                else if (v instanceof Double d) {
+                    if (d == Math.rint(d)) out.append(String.format("%.0f", d));
+                    else out.append(d);
+                } else out.append(v);
             }
             case Expr.Variable v -> {
                 if (!scopes.stream().anyMatch(s -> s.contains(v.name().lexem()))) warnings.add("Using variable '" + v.name().lexem() + "' before declaration");
@@ -136,52 +155,5 @@ public class JsTranspiler {
         } catch(Exception e){ return "// Transpilation failed: "+e.getMessage()+"\n"; }
     }
 
-    public static void main(String[] args) { Test(); }
-
-    public static void Test() {
-        System.out.println("=== Test 1: Fehlererkennung ===");
-        String code1 = """
-            var x = 10;
-            var x = 20;
-            print undefinedVar;
-            fun add(a,b){return a+b;}
-            add(1,2,3);
-            "hello"-5;
-            """;
-        System.out.println(transpile(code1));
-
-        System.out.println("\n=== Test 2: Korrektes Programm ===");
-       String code2 = """
-            fun fib(n) {
-                if (n <= 1) return n;
-                 return fib(n - 1) + fib(n - 2);
-                }
-            print fib(5);
-
-            class Shape {
-                init(color) {
-                    this.color = color;
-                 }
-                describe() {
-                print this.color + " shape";
-                }
-             }
-
-        class Circle < Shape {
-            init(color, radius) {
-                super.init(color);
-                this.radius = radius;
-        }
-        area() {
-            return 3.14 * this.radius * this.radius;
-            }
-        }
-
-            var  circle = new Circle("red", 5);
-                circle.describe();
-                print circle.area();
-            """;
-
-        System.out.println(transpile(code2));
-    }
+    
 }
