@@ -13,7 +13,6 @@
 
 /open LoxCallable.java
 
-//    Verwendet Reflection, um Interpreter zu verwenden ohne direkte Referenz
 /open LoxValue.java
 /open Interpreter.java
 
