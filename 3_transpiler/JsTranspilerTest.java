@@ -1,14 +1,12 @@
 public class JsTranspilerTest {
 
-	public static void run() {
-		runAll();
-	}
+	
 
 	public static void main(String[] args) {
 		runAll();
 	}
 
-	private static void runAll() {
+	public  static void runAll() {
 		Runnable[] tests = {
 			JsTranspilerTest::testBasics,
 			JsTranspilerTest::testControlFlow,
