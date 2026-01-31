@@ -14,7 +14,11 @@ public class JsTranspilerTest {
 			JsTranspilerTest::testControlFlow,
 			JsTranspilerTest::testFunctions,
 			JsTranspilerTest::testClasses,
-			JsTranspilerTest::testClosuresAndReturn
+			JsTranspilerTest::testClosuresAndReturn,
+			JsTranspilerTest::testShadowingAndScopes,
+			JsTranspilerTest::testInheritanceAndSuper,
+			JsTranspilerTest::testLogicalShortCircuit,
+			JsTranspilerTest::testWarningsAndErrors
 		};
 
 		int passed = 0;
@@ -99,5 +103,55 @@ public class JsTranspilerTest {
 			print add5(3);
 			""";
 		runCase("Closures & Return", source);
+	}
+
+	public static void testShadowingAndScopes() {
+		String source = """
+			var x = "global";
+			{
+				var x = "block";
+				print x;
+			}
+			print x;
+			""";
+		runCase("Shadowing & Scopes", source);
+	}
+
+	public static void testInheritanceAndSuper() {
+		String source = """
+			class Shape {
+				init(color) { this.color = color; }
+				describe() { print this.color + " shape"; }
+			}
+			class Circle < Shape {
+				init(color, r) { super.init(color); this.r = r; }
+				area() { return 3.14 * this.r * this.r; }
+			}
+			var c = Circle("red", 2);
+			c.describe();
+			print c.area();
+			""";
+		runCase("Inheritance & Super", source);
+	}
+
+	public static void testLogicalShortCircuit() {
+		String source = """
+			fun right() { print "right"; return true; }
+			print true or right();
+			print false and right();
+			""";
+		runCase("Logical Short-Circuit", source);
+	}
+
+	public static void testWarningsAndErrors() {
+		String source = """
+			var x = 1;
+			var x = 2;
+			print undef;
+			fun add(a,b){ return a+b; }
+			add(1,2,3);
+			"hello" - 5;
+			""";
+		runCase("Warnings & Errors", source);
 	}
 }
