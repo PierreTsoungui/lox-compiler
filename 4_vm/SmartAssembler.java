@@ -509,8 +509,6 @@ class SmartAssembler {
 
         compilers.push(methodCompiler);
         body.accept(this);
-
-        /
         if (methodCompiler.code.isEmpty() || !(methodCompiler.code.getLast() instanceof Op.Return)) {
             emit(new Op.GetLocal(0));
             emit(new Op.Return());
