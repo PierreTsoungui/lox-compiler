@@ -8,35 +8,6 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 
-/* ================= Token ================= */
- record Token(TokenType type, String lexem, Object value, int line) {
-    @Override
-    public String toString() {
-        return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
-    }
-
-}
-
-/* ================= TokenType ================= */
-enum TokenType {
-    // Keywords
-    FUN, VAR, IF, ELSE, WHILE, RETURN, AND, OR, NOT, TRUE, FALSE,
-    CLASS, SUPER, FOR, PRINT, THIS, NIL,
-
-    // Symbols & Operators
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
-    LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, MINUS, PLUS, STAR, SLASH, SEMICOLON,
-    EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL,
-    BANG, BANG_EQUAL, DOT,
-
-    // Identifiers & Literals
-    IDENTIFIER, NUMBER, STRING,
-
-    // EOF
-    EOF; 
-}
-
 /* ================= AstNode ================= */
 interface AstNode {
     List<AstNode> children();
@@ -497,20 +468,8 @@ public class ParserMain {
         return lhs;
     }
 
-    static TokenType mapType(Scanner.TokenType st) {
-      return TokenType.valueOf(st.name());
-   }
-
     static ParserMain fromSource(String source) {
-        List<Token> tokens = new Scanner(source).tokenize()
-                .stream()
-                .map(t -> new Token(
-                 mapType(t.type()),    
-                t.lexem(),
-                 t.value(),
-                t.line()
-        ))
-        .toList();
+        List<Token> tokens = new Scanner(source).tokenize();
 
         return new ParserMain(tokens);
     }
@@ -551,7 +510,7 @@ public class ParserMain {
             item(TokenType.IDENTIFIER),      
             superClassOpt,                       
             item(TokenType.LEFT_BRACE),      
-            many(lazy(this::funDecl)), 
+            many(lazy(this::methodDecl)), 
             item(TokenType.RIGHT_BRACE)      
         ).map(this::mapClassDecl);
     }
@@ -592,6 +551,10 @@ public class ParserMain {
             item(TokenType.FUN),
             function()
         ).map(res -> (Stmt.Function) stmt(res, 1));
+    }
+
+    Parser<Stmt.Function> methodDecl() {
+        return function();
     }
 
     Parser<Stmt> varDecl() {
@@ -912,16 +875,7 @@ public class ParserMain {
     );
 }
         
-    /*Hilfemethode */
-     // Kurze DOT-Methoden:
-    public String toDot() {
-        Stmt.Program p = program().parse(tokens).recognized().orElseThrow();
-        return AstDot.toDot(p);
-    }
-    
-    public void printDot(){
-        System.out.println(toDot());
-    }
+   
     @SuppressWarnings("unchecked")
     Parser<TokenNode>[] listItem(TokenType... types) {
         return Arrays.stream(types)
@@ -944,58 +898,4 @@ public class ParserMain {
 
 
 
-}
-
-/* ================= AstDot ================= */
-class AstDot {
-
-    public static String toDot(AstNode root) {
-        StringBuilder sb = new StringBuilder("digraph AST {\n");
-        visit(root, sb, new int[]{0});
-        sb.append("}\n");
-        return sb.toString();
-    }
-
-    private static int visit(AstNode node, StringBuilder sb, int[] idCounter) {
-        int id = idCounter[0]++;
-
-        // If this is a ListAstNode, make it transparent: don't emit a labeled
-        // node for it, and connect the parent directly to its children.
-        if (node instanceof ListAstNode) {
-            int parentId = id; // keep unique id even if transparent
-            for (AstNode child : node.children()) {
-                int childId = visit(child, sb, idCounter);
-                sb.append("  node").append(parentId).append(" -> node").append(childId).append(";\n");
-            }
-            return parentId;
-        }
-
-        sb.append("  node").append(id)
-          .append(" [label=\"").append(node.label().replace("\"", "\\\"")).append("\"];\n");
-
-        for (AstNode child : node.children()) {
-            int childId = visit(child, sb, idCounter);
-            sb.append("  node").append(id).append(" -> node").append(childId).append(";\n");
-        }
-
-        return id;
-    }
-
-    // Einfache Export-Methode
-    public static void exportToFile(AstNode root, String filename) throws IOException {
-        String dot = toDot(root);
-        Files.writeString(Path.of(filename), dot);
-        System.out.println("DOT saved to: " + filename);
-    }
-
-    // Append-capable export convenience
-    public static void exportToFile(AstNode root, String filename, boolean append) throws IOException {
-        String dot = toDot(root);
-        if (append) {
-            Files.writeString(Path.of(filename), dot, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-        } else {
-            Files.writeString(Path.of(filename), dot);
-        }
-        System.out.println("DOT saved to: " + filename + (append ? " (appended)" : ""));
-    }
 }

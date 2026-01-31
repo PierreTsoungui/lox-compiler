@@ -1,12 +1,5 @@
+
 import java.util.*;
-
-
-/**
- * VM und SmatAssembler 
- * 
- */
-
-
 import java.util.function.Function;
 
 
@@ -415,11 +408,12 @@ public class Compiler {
             }
             
             case Expr.Unary un -> {
-                exprToAsm(un.right());
+              
                 switch (un.operator().type()) {
                     case MINUS -> {
                         // -x wird zu 0 - x
                         asm.const_(new Val.Num(0));
+                        exprToAsm(un.right());
                         asm.sub();
                     }
                     case BANG -> asm.not();

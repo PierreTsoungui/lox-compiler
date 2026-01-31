@@ -5,6 +5,53 @@ import java.util.*;
 import java.util.regex.*;
 import java.util.function.BiConsumer;
 
+// ------------------ Token ------------------
+record Token(TokenType type, String lexem, Object value, int line) {
+    @Override
+    public String toString() {
+        return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
+    }
+}
+
+// ------------------ Token Types ------------------
+enum TokenType {
+    // Keywords
+    FUN, VAR, IF, ELSE, WHILE, RETURN, AND, OR, NOT, TRUE, FALSE,
+    CLASS, SUPER, FOR, PRINT, THIS, NIL,
+    // Symbols & Operators
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
+    COMMA, MINUS, PLUS, STAR, SLASH, SEMICOLON,
+    EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL,
+    BANG, BANG_EQUAL, DOT,
+    // Identifiers & Literals
+    IDENTIFIER, NUMBER, STRING,
+    // EOF
+    EOF;
+
+    public static final Map<String, TokenType> keywords = new HashMap<>();
+    static {
+        keywords.put("and", AND); keywords.put("class", CLASS); keywords.put("else", ELSE);
+        keywords.put("false", FALSE); keywords.put("for", FOR); keywords.put("fun", FUN);
+        keywords.put("if", IF); keywords.put("nil", NIL); keywords.put("or", OR);
+        keywords.put("print", PRINT); keywords.put("return", RETURN);
+        keywords.put("super", SUPER); keywords.put("this", THIS);
+        keywords.put("true", TRUE); keywords.put("var", VAR); keywords.put("while", WHILE);
+    }
+
+    public static final Map<String, TokenType> op = Map.ofEntries(
+        Map.entry("+", PLUS), Map.entry("-", MINUS), Map.entry("*", STAR), Map.entry("/", SLASH),
+        Map.entry("==", EQUAL_EQUAL), Map.entry("=", EQUAL), Map.entry("!=", BANG_EQUAL),
+        Map.entry("<", LESS), Map.entry("<=", LESS_EQUAL), Map.entry(">", GREATER), Map.entry(">=", GREATER_EQUAL),
+        Map.entry("!", BANG)
+    );
+
+    public static final Map<String, TokenType> sep = Map.ofEntries(
+        Map.entry("(", LEFT_PAREN), Map.entry(")", RIGHT_PAREN), Map.entry("{", LEFT_BRACE),
+        Map.entry("}", RIGHT_BRACE), Map.entry("[", LEFT_BRACKET), Map.entry("]", RIGHT_BRACKET),
+        Map.entry(",", COMMA), Map.entry(";", SEMICOLON), Map.entry(".", DOT)
+    );
+}
+
 public class Scanner {
     private final String source;
     private final List<Token> tokens = new ArrayList<>();
@@ -12,14 +59,6 @@ public class Scanner {
     private boolean error = false;
 
     public Scanner(String source) { this.source = source; }
-
-    // ------------------ Token ------------------
-    public record Token(TokenType type, String lexem, Object value, int line) {
-        @Override
-        public String toString() {
-            return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
-        }
-    }
 
     // ------------------ Tokenizing ------------------
     public List<Token> tokenize() {
@@ -66,45 +105,6 @@ public class Scanner {
 
         final String regex; final BiConsumer<Matcher, Scanner> handler;
         TokenPattern(String regex, BiConsumer<Matcher, Scanner> handler){ this.regex = regex; this.handler = handler; }
-    }
-
-    // ------------------ Token Types ------------------
-    public enum TokenType {
-        // Keywords
-        FUN, VAR, IF, ELSE, WHILE, RETURN, AND, OR, NOT, TRUE, FALSE,
-        CLASS, SUPER, FOR, PRINT, THIS, NIL,
-        // Symbols & Operators
-        LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-        COMMA, MINUS, PLUS, STAR, SLASH, SEMICOLON,
-        EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL,
-        BANG, BANG_EQUAL, DOT,
-        // Identifiers & Literals
-        IDENTIFIER, NUMBER, STRING,
-        // EOF
-        EOF;
-
-        public static final Map<String, TokenType> keywords = new HashMap<>();
-        static {
-            keywords.put("and", AND); keywords.put("class", CLASS); keywords.put("else", ELSE);
-            keywords.put("false", FALSE); keywords.put("for", FOR); keywords.put("fun", FUN);
-            keywords.put("if", IF); keywords.put("nil", NIL); keywords.put("or", OR);
-            keywords.put("print", PRINT); keywords.put("return", RETURN);
-            keywords.put("super", SUPER); keywords.put("this", THIS);
-            keywords.put("true", TRUE); keywords.put("var", VAR); keywords.put("while", WHILE);
-        }
-
-        public static final Map<String, TokenType> op = Map.ofEntries(
-            Map.entry("+", PLUS), Map.entry("-", MINUS), Map.entry("*", STAR), Map.entry("/", SLASH),
-            Map.entry("==", EQUAL_EQUAL), Map.entry("=", EQUAL), Map.entry("!=", BANG_EQUAL),
-            Map.entry("<", LESS), Map.entry("<=", LESS_EQUAL), Map.entry(">", GREATER), Map.entry(">=", GREATER_EQUAL),
-            Map.entry("!", BANG)
-        );
-
-        public static final Map<String, TokenType> sep = Map.ofEntries(
-            Map.entry("(", LEFT_PAREN), Map.entry(")", RIGHT_PAREN), Map.entry("{", LEFT_BRACE),
-            Map.entry("}", RIGHT_BRACE), Map.entry("[", LEFT_BRACKET), Map.entry("]", RIGHT_BRACKET),
-            Map.entry(",", COMMA), Map.entry(";", SEMICOLON), Map.entry(".", DOT)
-        );
     }
 
     // ------------------ Testmethoden ------------------
