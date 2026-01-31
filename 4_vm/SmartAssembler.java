@@ -182,7 +182,7 @@ class Upvalue {
     }
 }
 // === SmartAssembler Implementation ===
-class SmartAssembler {
+public class SmartAssembler {
 
     private final Deque<CompilerState> compilers = new ArrayDeque<>();
     private final Set<String> globals = new HashSet<>();

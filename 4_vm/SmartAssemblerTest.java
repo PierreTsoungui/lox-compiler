@@ -238,10 +238,10 @@ public class SmartAssemblerTest {
             System.out.println("\n-- Test #" + run + " --");
             try {
                 t.run();
-                System.out.println("PASSED");
+                System.out.println("  PASSED");
                 passed++;
             } catch (Throwable e) {
-                System.out.println(" FAILED: " + e.getMessage());
+                System.out.println("  FAILED: " + e.getMessage());
                 e.printStackTrace(System.out);
                 failed++;
             }
