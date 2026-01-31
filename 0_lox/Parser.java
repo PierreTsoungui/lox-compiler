@@ -13,10 +13,7 @@ public class Parser {
         this.tokens = tokens;
     }
 
-    /* ---------------------------
-       Declaration Type
-    --------------------------- */
-    private enum DeclKind { CLASS, FUN, VAR, NONE }
+   
 
     /* ---------------------------
        Entry Point
@@ -120,7 +117,7 @@ private Stmt forStatement() {
 }
 
     private Stmt ifStatement() {
-        // 'if' wurde bereits von statement() gematcht
+
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
         Expr condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");

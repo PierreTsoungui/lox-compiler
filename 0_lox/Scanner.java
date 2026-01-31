@@ -27,7 +27,7 @@ public class Scanner {
 
     private final String source;
     final List<Token> tokens = new ArrayList<>();
-    private boolean hadError = false;  // NEU: Lokales Error-Flag
+    private boolean hadError = false;
     private int start = 0;
     private int current = 0;
     private int line = 1;
@@ -94,7 +94,6 @@ public class Scanner {
         while (isAlphaNumeric(peek())) advance();
         String text = source.substring(start, current);
 
-        // Vereinfachte Version (ohne Streams für bessere Lesbarkeit)
         TokenType type = keywords.getOrDefault(text, TokenType.IDENTIFIER);
         addToken(type);
     }
