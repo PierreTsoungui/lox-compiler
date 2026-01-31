@@ -1,3 +1,4 @@
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,11 +9,12 @@ import java.util.stream.Stream;
 
 
 /* ================= Token ================= */
-record Token(TokenType type, String lexem, Object value, int line) {
+ record Token(TokenType type, String lexem, Object value, int line) {
     @Override
     public String toString() {
         return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
     }
+
 }
 
 /* ================= TokenType ================= */
@@ -44,12 +46,12 @@ sealed interface Expr extends AstNode
     permits Expr.Assign, Expr.Binary, Expr.Call, Expr.Get, Expr.Set, Expr.Grouping,
             Expr.Literal, Expr.Logical, Expr.Super, Expr.This, Expr.Unary, Expr.Variable {
 
-   public record Assign(Token name, Expr value) implements Expr {
+    record Assign(Token name, Expr value) implements Expr {
         @Override public List<AstNode> children() { return List.of(value); }
         @Override public String label() { return "Assign"; }
     }
 
-   public record Binary(Expr left, Token operator, Expr right) implements Expr {
+    record Binary(Expr left, Token operator, Expr right) implements Expr {
         @Override public List<AstNode> children() { return List.of(left,right); }
         @Override public String label() { return "Binary:"+operator.lexem(); }
     }
@@ -57,8 +59,9 @@ sealed interface Expr extends AstNode
     record Call(Expr callee, Token paren, List<Expr> arguments) implements Expr {
         @Override public List<AstNode> children() {
             List<AstNode> children = new ArrayList<>();
-            children.add(callee); children.addAll(arguments);
-            return children;
+            children.add(callee);
+            children.addAll(arguments);
+            return List.copyOf(children);
         }
         @Override public String label() { return "Call"; }
     }
@@ -70,7 +73,7 @@ sealed interface Expr extends AstNode
     record Set(Expr object, Token name, Expr value) implements Expr {
         @Override
         public List<AstNode> children() {
-            return List.of(object, value); // Beide Kinder wichtig für Traversal
+            return List.of(object, value); 
         }
 
         @Override
@@ -141,16 +144,17 @@ sealed interface Stmt extends AstNode
     }
 
     record Block(List<Stmt> statements) implements Stmt {
-        @Override public List<AstNode> children() { return new ArrayList<>(statements); }
+        @Override public List<AstNode> children() { return List.copyOf(statements); }
         @Override public String label() { return "block"; }
     }
 
     record If(Expr condition, Stmt thenBranch, Optional<Stmt> elseBranch) implements Stmt {
         @Override public List<AstNode> children() {
             List<AstNode> list = new ArrayList<>();
-            list.add(condition); list.add(thenBranch);
+            list.add(condition);
+            list.add(thenBranch);
             elseBranch.ifPresent(list::add);
-            return list;
+            return List.copyOf(list);
         }
         @Override public String label() { return "if-stmt"; }
     }
@@ -168,7 +172,7 @@ sealed interface Stmt extends AstNode
     }
 
     record Function(Token name, List<Token> params, List<Stmt> body) implements Stmt {
-        @Override public List<AstNode> children() { return new ArrayList<>(body); }
+        @Override public List<AstNode> children() { return List.copyOf(body); }
         @Override public String label() { return "funDecl " + name.lexem(); }
     }
 
@@ -178,14 +182,14 @@ sealed interface Stmt extends AstNode
             kids.add(new TokenNode(name));
             if (superClass != null) kids.add(superClass);
             kids.addAll(methods);
-            return kids;
+            return List.copyOf(kids);
         }
         @Override public String label() { return "ClassDecl"; }
     }
 
     // Optional: Program-Wrapper
     record Program(List<Stmt> declarations) implements AstNode {
-        @Override public List<AstNode> children() { return new ArrayList<>(declarations); }
+        @Override public List<AstNode> children() { return List.copyOf(declarations); }
         @Override public String label() { return "Program"; }
     }
 }
@@ -200,7 +204,7 @@ sealed interface Stmt extends AstNode
     record ListAstNode(List<AstNode> nodes) implements AstNode {
         @Override
         public List<AstNode> children() {
-            return new ArrayList<>(nodes);
+            return List.copyOf(nodes);
         }
     
         @Override
@@ -354,9 +358,20 @@ sealed interface Parser<T extends AstNode>
             while (true) {
                 var r = parser.parse(current);
                 if (r.hasFailed()) break;
-           
+
+                List<Token> next = r.rest();
+
+                // Guard: if the underlying parser does not consume any tokens,
+                // stop to avoid an infinite loop. Emit a warning so the developer
+                // can fix the parser that accepts empty input.
+                if (next == current || next.size() == current.size()) {
+                    System.err.println("Warning: Many parser did not consume input; stopping to avoid infinite loop.");
+                    list.add(r.recognized().orElse(null));
+                    break;
+                }
+
                 list.add(r.recognized().orElse(null));
-                current = r.rest();
+                current = next;
             }
 
             return Result.of(new ListAstNode(list), current);
@@ -397,6 +412,91 @@ public class ParserMain {
         this.tokens = tokens;
     }
 
+    // Helper factory methods to reduce repetition
+    private Parser<TokenNode> item(TokenType t) { return new Item(t); }
+
+    private <T extends AstNode> Parser<ListAstNode> many(Parser<T> p) { return new Many<>(p); }
+
+    private <T extends AstNode> Parser<T> maybe(Parser<T> p) { return new Maybe<>(p); }
+
+    private <T extends AstNode> Parser<T> lazy(Supplier<Parser<T>> s) { return new Parser.Lazy<>(s); }
+
+    // Helpers to reduce casting of parser result lists
+    private TokenNode tokenNode(ListAstNode list, int idx) { return (TokenNode) list.nodes().get(idx); }
+    private Token token(ListAstNode list, int idx) { return tokenNode(list, idx).token(); }
+    private Expr expr(ListAstNode list, int idx) { return (Expr) list.nodes().get(idx); }
+    private Stmt stmt(ListAstNode list, int idx) { return (Stmt) list.nodes().get(idx); }
+    private ListAstNode listAst(ListAstNode list, int idx) { return (ListAstNode) list.nodes().get(idx); }
+    
+    // Helper to create simple token-based Expr parsers
+    private Parser<Expr> tokenParser(TokenType type, Function<Token, Expr> f) {
+        return item(type).map(t -> f.apply(t.token()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T extends AstNode> T node(ListAstNode list, int idx) { return (T) list.nodes().get(idx); }
+
+    // Extracted mapper helpers to shorten parser methods
+    private Stmt.Program mapProgram(ListAstNode parts) {
+        return new Stmt.Program(extractStatements(listAst(parts, 0)));
+    }
+
+    private Stmt mapClassDecl(ListAstNode list) {
+        TokenNode className = tokenNode(list, 1);
+        AstNode superNode = list.nodes().get(2);
+        Token superClass = superNode instanceof TokenNode t ? t.token() : null;
+        ListAstNode methodsNode = listAst(list, 4);
+        List<Stmt.Function> methods = methodsNode.nodes().stream().map(n -> (Stmt.Function) n).toList();
+        return new Stmt.Class(className.token(), superClass == null ? null : new Expr.Variable(superClass), methods);
+    }
+
+    private Stmt.Function mapFunction(ListAstNode list) {
+        TokenNode nameNode = tokenNode(list, 0);
+        ListAstNode par = listAst(list, 2);
+        List<Token> params = par != null ? par.nodes().stream().map(t -> ((TokenNode) t).token()).toList() : List.of();
+        Stmt.Block bl = (Stmt.Block) stmt(list, 4);
+        return new Stmt.Function(nameNode.token(), params, bl.statements());
+    }
+
+    private ListAstNode mapParameters(ListAstNode list) {
+        TokenNode first = tokenNode(list, 0);
+        ListAstNode rest = listAst(list, 1);
+        List<AstNode> all = Stream.concat(Stream.of(first), rest.nodes().stream()).toList();
+        return new ListAstNode(all);
+    }
+
+    private Stmt.Block mapBlock(ListAstNode list) {
+        ListAstNode manyNode = listAst(list, 1);
+        List<Stmt> decls = manyNode.nodes().stream().map(n -> (Stmt) n).toList();
+        return new Stmt.Block(decls);
+    }
+
+    private Stmt mapVarDecl(ListAstNode list) {
+        TokenNode varName = tokenNode(list, 1);
+        var maybeInit = list.nodes().get(2);
+        Expr init = maybeInit == null ? null : (Expr) maybeInit;
+        return new Stmt.Var(varName.token(), init);
+    }
+
+    private Stmt mapForStmt(ListAstNode list) {
+        Stmt body = stmt(list, 7);
+        if (expr(list, 5) != null)
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(expr(list, 5))));
+        body = new Stmt.While(expr(list, 3) != null ? expr(list, 3) : new Expr.Literal(true), body);
+        if (stmt(list, 2) != null)
+            body = new Stmt.Block(Arrays.asList(stmt(list, 2), body));
+        return body;
+    }
+
+    private Expr mapAssignment(ListAstNode list) {
+        Expr lhs = expr(list, 0);
+        Expr maybeRhs = expr(list, 1);
+        if (maybeRhs == null) return lhs;
+        if (lhs instanceof Expr.Variable v) return new Expr.Assign(v.name(), maybeRhs);
+        if (lhs instanceof Expr.Get g) return new Expr.Set(g.object(), g.name(), maybeRhs);
+        return lhs;
+    }
+
     static TokenType mapType(Scanner.TokenType st) {
       return TokenType.valueOf(st.name());
    }
@@ -417,13 +517,11 @@ public class ParserMain {
 
     // program → declaration* EOF
     Parser<Stmt.Program> program() {
-        return new Parser.Lazy<>(() ->
+        return lazy(() ->
             new And(
-            new Many<>(declaration()),
-            new Item(TokenType.EOF)
-            ).map(parts -> 
-                new Stmt.Program(extractStatements((ListAstNode) parts.nodes().get(0)))
-            )
+                many(declaration()),
+                item(TokenType.EOF)
+            ).map(this::mapProgram)
         );
     }
     // Hilfsmethode
@@ -434,219 +532,159 @@ public class ParserMain {
     }
     Parser<Stmt> declaration() {
         return new Or<>(
-            new Parser.Lazy<>(() -> classDecl()),
-            new Parser. Lazy<>(() -> funDecl()),
-            new Parser.Lazy<>(() -> varDecl()),
-            new Parser.Lazy<>(() -> statement())
+            lazy(this::classDecl),
+            lazy(this::funDecl),
+            lazy(this::varDecl),
+            lazy(this::statement)
         );
     }
     Parser<TokenNode> superClassOpt =
-        new Maybe<>(
+        maybe(
             new And(
-            listItem(TokenType.LESS,TokenType.IDENTIFIER)
-        ).map(listAst -> (TokenNode) listAst.nodes().get(1))
-    );
+                listItem(TokenType.LESS, TokenType.IDENTIFIER)
+            ).map(listAst -> tokenNode(listAst, 1))
+        );
 
     Parser<Stmt> classDecl() {
         return new And(
-            new Item(TokenType.CLASS),           
-            new Item(TokenType.IDENTIFIER),      
+            item(TokenType.CLASS),           
+            item(TokenType.IDENTIFIER),      
             superClassOpt,                       
-            new Item(TokenType.LEFT_BRACE),      
-            new Many<>(new Parser.Lazy<>(() -> function())), 
-            new Item(TokenType.RIGHT_BRACE)      
-        ).map(list -> {
-        List<AstNode> nodes = list.nodes();
-
-        TokenNode className = (TokenNode) nodes.get(1);
-
-        AstNode superNode = nodes.get(2);
-        Token superClass = superNode instanceof TokenNode t? (Token) t.token() : null;
-        
-        ListAstNode methodsNode = (ListAstNode) nodes.get(4);
-        List<Stmt.Function> methods = methodsNode.nodes().stream()
-                                    .map(n -> (Stmt.Function) n)
-                                    .toList();
-
-        return new Stmt.Class(className.token(), superClass == null ? null : new Expr.Variable(superClass), methods);
-    });
+            item(TokenType.LEFT_BRACE),      
+            many(lazy(this::funDecl)), 
+            item(TokenType.RIGHT_BRACE)      
+        ).map(this::mapClassDecl);
     }
     
     Parser<Stmt.Function> function() {
 
-        Parser<ListAstNode> parametersOpt = new Maybe<>(parameters());
+        Parser<ListAstNode> parametersOpt = maybe(parameters());
 
         return new And(
-            new Item(TokenType.IDENTIFIER),   // 0: Funktionsname
-            new Item(TokenType.LEFT_PAREN),   // 1
+            item(TokenType.IDENTIFIER),   // 0: Funktionsname
+            item(TokenType.LEFT_PAREN),   // 1
             parametersOpt,                    // 2
-            new Item(TokenType.RIGHT_PAREN),  // 3
+            item(TokenType.RIGHT_PAREN),  // 3
             block()                           // 4
-        ).map(list -> {
-            TokenNode nameNode = (TokenNode) list.nodes().get(0);
-
-            // Optional parameters: kann null sein
-            ListAstNode par = (ListAstNode) list.nodes().get(2);
-            List<Token> params = par != null
-            ? par.nodes().stream().map(t -> ((TokenNode) t).token()).toList()
-            : List.of();
-
-            Stmt.Block bl= (Stmt.Block) list.nodes().get(4);
-
-            return new Stmt.Function(nameNode.token(), params, bl.statements());
-        });
+        ).map(this::mapFunction);
     }
 
     Parser<ListAstNode> parameters() {
         return new And(
-            new Item(TokenType.IDENTIFIER),
-            new Many<>(new And(
-            new Item(TokenType.COMMA),
-            new Item(TokenType.IDENTIFIER)
-            ).map(list -> (TokenNode) list.nodes().get(1))) // nur IDENTIFIER extrahieren
-        ).map(list -> {
-            TokenNode first = (TokenNode) list.nodes().get(0);
-            ListAstNode rest = (ListAstNode) list.nodes().get(1);
-
-            List<AstNode> all = Stream.concat(
-            Stream.of(first),
-            rest.nodes().stream()
-            ).toList();
-
-         return new ListAstNode(all);
-     });
+            item(TokenType.IDENTIFIER),
+            many(new And(
+                item(TokenType.COMMA),
+                item(TokenType.IDENTIFIER)
+            ).map(list -> tokenNode(list, 1))) // nur IDENTIFIER extrahieren
+        ).map(this::mapParameters);
     }
 
     Parser<Stmt> block() {
-         return new And(
-        new Item(TokenType.LEFT_BRACE),   // 0
-        new Many<>(declaration()),        // 1
-        new Item(TokenType.RIGHT_BRACE)   // 2
-     ).map(list -> {
-        ListAstNode manyNode = (ListAstNode) list.nodes().get(1); 
-        List<Stmt> decls = manyNode.nodes().stream()
-                                     .map(n -> (Stmt) n)
-                                     .toList();
-        return new Stmt.Block(decls);
-        });
+        return new And(
+            item(TokenType.LEFT_BRACE),   // 0
+            many(declaration()),        // 1
+            item(TokenType.RIGHT_BRACE)   // 2
+        ).map(this::mapBlock);
     }
 
     Parser<Stmt> funDecl() {
         return new And(
-            new Item(TokenType.FUN),
+            item(TokenType.FUN),
             function()
-        ).map(res -> ((Stmt.Function)(res.nodes().get(1))));
+        ).map(res -> (Stmt.Function) stmt(res, 1));
     }
 
     Parser<Stmt> varDecl() {
-        Parser<TokenNode> varKeyword = new Item(TokenType.VAR);
-        Parser<TokenNode> name = new Item(TokenType.IDENTIFIER);
-        Parser<Expr> initializer = new Maybe<>(
+        Parser<TokenNode> varKeyword = item(TokenType.VAR);
+        Parser<TokenNode> name = item(TokenType.IDENTIFIER);
+        Parser<Expr> initializer = maybe(
             new And(
-            new Item(TokenType.EQUAL),
-            parseExpression()
-            ).map(list -> (Expr) list.nodes().get(1)) 
-    )   ;
-        Parser<TokenNode> semicolon = new Item(TokenType.SEMICOLON);
+                item(TokenType.EQUAL),
+                parseExpression()
+            ).map(list -> expr(list, 1))
+        );
+        Parser<TokenNode> semicolon = item(TokenType.SEMICOLON);
 
         return new And(varKeyword, name, initializer, semicolon)
-            .map(list -> {
-              TokenNode varName = (TokenNode) list.nodes().get(1);
-              var maybeInit=list.nodes().get(2);
-             
-            Expr init = maybeInit ==null? null : (Expr) maybeInit;
-
-            return new Stmt.Var(varName.token(), init);
-        });
+            .map(this::mapVarDecl);
     }
 
      Parser<Stmt> exprStmt() {
         return new And(
-        parseExpression(),
-        new Item(TokenType.SEMICOLON)
-        ).map(list ->new Stmt.Expression((Expr) list.nodes().get(0)));
+            parseExpression(),
+            item(TokenType.SEMICOLON)
+        ).map(list -> new Stmt.Expression(expr(list, 0)));
     }
 
     Parser<Stmt> printStmt() {
         return new And(
-            new Item(TokenType.PRINT),
+            item(TokenType.PRINT),
             parseExpression(),
-            new Item(TokenType.SEMICOLON)
-        ).map(list -> new  Stmt.Print((Expr) list.nodes().get(1)));
+            item(TokenType.SEMICOLON)
+        ).map(list -> new Stmt.Print(expr(list, 1)));
     }
 
     Parser<Stmt> returnStmt() {
         return new And(
-            new Item(TokenType.RETURN),
-            new Maybe<>(parseExpression()),
-            new Item(TokenType.SEMICOLON)
-        ).map(list ->new Stmt.Return((Token)((TokenNode) list.nodes().get(0)).token(),(Expr) list.nodes().get(1)));
+            item(TokenType.RETURN),
+            maybe(parseExpression()),
+            item(TokenType.SEMICOLON)
+            ).map(list -> new Stmt.Return(token(list, 0), expr(list, 1)));
     }
 
     Parser<Stmt> ifStmt() {
         return new And(
-            new Item(TokenType.IF),
-            new Item(TokenType.LEFT_PAREN),
+            item(TokenType.IF),
+            item(TokenType.LEFT_PAREN),
             parseExpression(),
-            new Item(TokenType.RIGHT_PAREN),
+            item(TokenType.RIGHT_PAREN),
             statement(),
-            new Maybe<>(new And(new Item(TokenType.ELSE), statement()).map(l -> (Stmt) l.nodes().get(1)))
-        ).map(list ->new Stmt.If(
-        (Expr) list.nodes().get(2),
-        (Stmt) list.nodes().get(4),
-        Optional.ofNullable((Stmt) list.nodes().get(5)))
+            maybe(new And(item(TokenType.ELSE), statement()).map(l -> stmt(l, 1)))
+        ).map(list -> new Stmt.If(
+            expr(list, 2),
+            stmt(list, 4),
+            Optional.ofNullable(stmt(list, 5)))
         );
     }
 
 
     Parser<Stmt> whileStmt() {
         return new And(
-            new Item(TokenType.WHILE),
-            new Item(TokenType.LEFT_PAREN),
+            item(TokenType.WHILE),
+            item(TokenType.LEFT_PAREN),
             parseExpression(),
-            new Item(TokenType.RIGHT_PAREN),
+            item(TokenType.RIGHT_PAREN),
             statement()
         ).map(list -> new Stmt.While(
-            (Expr) list.nodes().get(2),
-            (Stmt) list.nodes().get(4)
+            expr(list, 2),
+            stmt(list, 4)
         ));
     }
         @SuppressWarnings("unchecked")
       Parser<Stmt> forStmt() {
-        return new And(
-            new Item(TokenType.FOR),
-            new Item(TokenType.LEFT_PAREN),
-            new Or<>(varDecl(), exprStmt(), new Item(TokenType.SEMICOLON).map(tok -> null)),
-            new Maybe<>(parseExpression()),
-            new Item(TokenType.SEMICOLON),
-            new Maybe<>(parseExpression()),
-             new Item(TokenType.RIGHT_PAREN),
-             statement()
-            ).map(list -> {
-            Stmt body = (Stmt) list.nodes().get(7);
-            if (list.nodes().get(5) != null)
-                 body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression((Expr) list.nodes().get(5))));
-            body = new Stmt.While(
-                list.nodes().get(3) != null ? (Expr) list.nodes().get(3) : new Expr.Literal(true),
-                body
-            );
-            if (list.nodes().get(2) != null)
-                body = new Stmt.Block(Arrays.asList((Stmt) list.nodes().get(2), body));
-            return body;
-        });
+            return new And(
+                item(TokenType.FOR),
+                item(TokenType.LEFT_PAREN),
+                new Or<>(varDecl(), exprStmt(), item(TokenType.SEMICOLON).map(tok -> null)),
+                maybe(parseExpression()),
+                item(TokenType.SEMICOLON),
+                maybe(parseExpression()),
+                item(TokenType.RIGHT_PAREN),
+                statement()
+            ).map(this::mapForStmt);
     }
 
 
     Parser<Stmt> statement() {
-        return new Parser.Lazy<>(() -> 
+        return lazy(() ->
             new Or<>(
-            exprStmt(),
-            forStmt(),
-            ifStmt(),
-            printStmt(),
-            returnStmt(),
-            whileStmt(),
-            block()
+                exprStmt(),
+                forStmt(),
+                ifStmt(),
+                printStmt(),
+                returnStmt(),
+                whileStmt(),
+                block()
             )
         );
     }
@@ -658,49 +696,30 @@ public class ParserMain {
 
     // ==================== Parser für Assignment ====================
     Parser<Expr> assignment() {
-        return new Parser.Lazy<Expr>(() ->
+        return lazy(() ->
             new And(
                 logicOr(),  // 0: parse einen "normalen" Ausdruck (kann Call/Get beinhalten)
-                new Maybe<>( // optional: "=" assignment
-                new And(
-                    new Item(TokenType.EQUAL),
-                    new Parser.Lazy<>(this::assignment)
-                ).map(ep -> (Expr) ep.nodes().get(1))
-            )
-            ).map(list -> {
-                Expr lhs = (Expr) list.nodes().get(0);
-                Expr maybeRhs = (Expr) list.nodes().get(1); // null wenn kein '='
-
-                if (maybeRhs == null) {
-                
-                    return lhs;
-                }
-                // Es gab ein '=' — jetzt muss lhs assignable sein
-                if (lhs instanceof Expr.Variable v) {
-                    return new Expr.Assign(v.name(), maybeRhs);
-                }
-                if (lhs instanceof Expr.Get g) {
-                    Expr obj= g.object();
-                    Token name = g.name();
-                    return new Expr.Set(obj,name, maybeRhs);
-                }
-            
-                return lhs; 
-            })
+                maybe( // optional: "=" assignment
+                    new And(
+                        item(TokenType.EQUAL),
+                        lazy(this::assignment)
+                    ).map(ep -> expr(ep, 1))
+                )
+            ).map(this::mapAssignment)
         );
     }
 
 
     //logic_or       → logic_and ( "or" logic_and )* ; 
     Parser<Expr> logicOr() {
-        return binaryLeftAssoc(logicAnd(), new Item(TokenType.OR), logicAnd(),false);
+        return binaryLeftAssoc(logicAnd(), item(TokenType.OR), logicAnd(), false);
     }
 
 
     //logic_and      → equality ( "and" equality )* ;
     
     Parser<Expr> logicAnd() {
-         return binaryLeftAssoc(equality(), new Item(TokenType.AND), equality(),false);
+            return binaryLeftAssoc(equality(), item(TokenType.AND), equality(), false);
     }
 
  
@@ -708,7 +727,7 @@ public class ParserMain {
     Parser<Expr> equality() {
         return binaryLeftAssoc(
         comparison(),
-        new Or<>(new Item(TokenType.BANG_EQUAL), new Item(TokenType.EQUAL_EQUAL)),
+        new Or<>(item(TokenType.BANG_EQUAL), item(TokenType.EQUAL_EQUAL)),
         comparison(),true
     );
     }
@@ -722,10 +741,10 @@ public class ParserMain {
     )
      {
         return operand.flatMap(first ->
-            new Many<>(new And(operator, nextOperand)
-            .map(l -> new Pair<>(
-                    ((TokenNode) l.nodes().get(0)).token(),
-                    (Expr) l.nodes().get(1)
+            many(new And(operator, nextOperand)
+                .map(l -> new Pair<>(
+                    token(l, 0),
+                    expr(l, 1)
             ))).map(pairs -> {
                 Expr expr = first;
                 for (AstNode node : pairs.nodes()) {
@@ -742,10 +761,10 @@ public class ParserMain {
 
     Parser<Expr> comparison() {
         Parser<TokenNode> op = new Or<>(
-            new Item(TokenType.LESS),
-            new Item(TokenType.LESS_EQUAL),
-            new Item(TokenType.GREATER),
-            new Item(TokenType.GREATER_EQUAL)
+            item(TokenType.LESS),
+            item(TokenType.LESS_EQUAL),
+            item(TokenType.GREATER),
+            item(TokenType.GREATER_EQUAL)
         );
          return binaryLeftAssoc(term(), op, term(),true );
 
@@ -755,8 +774,8 @@ public class ParserMain {
     Parser<Expr> term() {
 
         Parser<TokenNode> op = new Or<>(
-            new Item(TokenType.MINUS),
-            new Item(TokenType.PLUS)
+            item(TokenType.MINUS),
+            item(TokenType.PLUS)
         );
 
           return binaryLeftAssoc(factor(), op, factor(),true);
@@ -764,8 +783,8 @@ public class ParserMain {
     
     Parser<Expr> factor() {
         Parser<TokenNode> op = new Or<>(
-            new Item(TokenType.SLASH),
-            new Item(TokenType.STAR)
+            item(TokenType.SLASH),
+            item(TokenType.STAR)
         );
          return binaryLeftAssoc(unary(), op, unary(),true);
     }
@@ -774,23 +793,15 @@ public class ParserMain {
 
    /*  unary          → ( "!" | "-" ) unary | call ;
     call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;*/
-     Parser<Expr> unary() {
-        Parser<TokenNode> op = new Or<>(
-            new Item(TokenType.BANG),
-            new Item(TokenType.MINUS)
-        );
-        
-         Parser<Expr> recursive = new Parser.Lazy<>(() -> unary());
+    Parser<Expr> unary() {
+        Parser<TokenNode> op = new Or<>(item(TokenType.BANG), item(TokenType.MINUS));
 
-    // Parser für einen Unary-Operator + Operand
-        Parser<Expr> left = new And(op, recursive)
-        .map(l-> {
-                          // And liefert List<Object>
-                Token operator = (Token) ((TokenNode) l.nodes().get(0)).token();
-                 Expr right = (Expr) l.nodes().get(1);
-                return new Expr.Unary(operator, right);
-         });
-            
+        Parser<Expr> left = new And(op, lazy(this::unary)).map(l -> {
+            Token operator = token(l, 0);
+            Expr right = expr(l, 1);
+            return new Expr.Unary(operator, right);
+        });
+
         return new Or<>(left, call());
     }
 
@@ -801,7 +812,7 @@ public class ParserMain {
 
     Parser<Expr> call() {
         return primary().flatMap(callee ->
-            new Many<>(callSuffix()).map(suffixes -> {
+            many(callSuffix()).map(suffixes -> {
                 Expr expr = callee;
                 for (AstNode n: suffixes.nodes()) {
                      Expr suffix= (Expr) n;
@@ -821,17 +832,17 @@ public class ParserMain {
 
     private Parser<Expr> functionCallSuffix() {
         return new And(
-            new Item(TokenType.LEFT_PAREN),
-            new Maybe<>(arguments()),
-            new Item(TokenType.RIGHT_PAREN)
+            item(TokenType.LEFT_PAREN),
+            maybe(arguments()),
+            item(TokenType.RIGHT_PAREN)
         ).map(list -> {
-         ListAstNode argsNode = (ListAstNode) list.nodes().get(1);
-        List<Expr> args = Optional.ofNullable(argsNode)
+            ListAstNode argsNode = listAst(list, 1);
+           List<Expr> args = Optional.ofNullable(argsNode)
                         .map(node -> node.nodes().stream()
                         .map(exp -> (Expr) exp)
                         .toList())
-                         .orElse(List.of());
-         Token paren = ((TokenNode) list.nodes().get(2)).token(); // ')' Token
+                        .orElse(List.of());
+            Token paren = token(list, 2); // ')' Token
          return new Expr.Call(null, paren, args); // callee wird später gesetzt
          });
     }
@@ -839,10 +850,10 @@ public class ParserMain {
 
     private Parser<Expr> propertyAccessSuffix() {
         return new And(
-            new Item(TokenType.DOT),
-            new Item(TokenType.IDENTIFIER)
+            item(TokenType.DOT),
+            item(TokenType.IDENTIFIER)
         ).map(list -> {
-            Token name = ((TokenNode) list.nodes().get(1)).token();
+            Token name = token(list, 1);
             return (Expr) new Expr.Get(null, name); // callee wird später gesetzt
         });
     }
@@ -857,28 +868,22 @@ public class ParserMain {
     }
 
    Parser<Expr> primary() {
-        Map<TokenType, Function<Token, Expr>> tokenMappings = Map.of(
-         TokenType.TRUE, t -> new Expr.Literal(true),
-         TokenType.FALSE, t -> new Expr.Literal(false),
-         TokenType.NIL, t -> new Expr.Literal(null),
-         TokenType.THIS, Expr.This::new,
-         TokenType.NUMBER, t -> new Expr.Literal(t.value()),
-         TokenType.STRING, t -> new Expr.Literal(t.value()),
-         TokenType.IDENTIFIER, Expr.Variable::new 
-        );
-
         @SuppressWarnings("unchecked")
         Parser<Expr> simpleTokens = new Or<>(
-            tokenMappings.entrySet().stream()
-            .map(e -> new Item(e.getKey()).map(t -> e.getValue().apply(t.token())))
-            .toArray(Parser[]::new)
+            tokenParser(TokenType.TRUE, t -> new Expr.Literal(true)),
+            tokenParser(TokenType.FALSE, t -> new Expr.Literal(false)),
+            tokenParser(TokenType.NIL, t -> new Expr.Literal(null)),
+            tokenParser(TokenType.THIS, Expr.This::new),
+            tokenParser(TokenType.NUMBER, t -> new Expr.Literal(t.value())),
+            tokenParser(TokenType.STRING, t -> new Expr.Literal(t.value())),
+            tokenParser(TokenType.IDENTIFIER, Expr.Variable::new)
         );
 
         Parser<Expr> superExpr = new And(
-            new Item(TokenType.SUPER),
-            new Item(TokenType.DOT),
-            new Item(TokenType.IDENTIFIER)
-        ).map(list -> new Expr.Super(((TokenNode) list.nodes().get(0)).token(),((TokenNode) list.nodes().get(2)).token()));
+            item(TokenType.SUPER),
+            item(TokenType.DOT),
+            item(TokenType.IDENTIFIER)
+        ).map(list -> new Expr.Super(token(list, 0), token(list, 2)));
 
         Parser<Expr> grouping = between(
             TokenType.LEFT_PAREN, parseExpression(), TokenType.RIGHT_PAREN
@@ -888,15 +893,15 @@ public class ParserMain {
     }
       @SuppressWarnings("unchecked")
     private <T extends AstNode> Parser<T>between(TokenType left, Parser<T> middle, TokenType right) {
-            return new And(new Item(left), middle, new Item(right))
-            .map(list -> (T) list.nodes().get(1));
+        return new And(item(left), middle, item(right))
+            .map(list -> node(list, 1));
     }
     //arguments      → expression ( "," expression )* ;
    Parser<ListAstNode> arguments() {
     return parseExpression().flatMap(firstArg -> 
-        new Many<>(
-            new And(new Item(TokenType.COMMA), parseExpression())
-                .map(list -> (Expr) list.nodes().get(1))
+        many(
+            new And(item(TokenType.COMMA), parseExpression())
+                .map(list -> expr(list, 1))
         ).map(restArgs -> {
             // Kombiniere firstArg mit restArgs
             List<AstNode> allArgs = new ArrayList<>();
@@ -933,7 +938,7 @@ public class ParserMain {
             return prog.declarations();
         } else {
             System.err.println("Parsing Error: " );
-            return List.of(); // leere Liste statt null
+            return List.of(); 
     }
 }
 
@@ -954,18 +959,23 @@ class AstDot {
     private static int visit(AstNode node, StringBuilder sb, int[] idCounter) {
         int id = idCounter[0]++;
 
-        // Prüfen, ob der Knoten „sichtbar“ sein soll
-        //boolean isTransparent = node instanceof ListAstNode;
-            sb.append("  node").append(id)
-              .append(" [label=\"").append(node.label().replace("\"", "\\\"")).append("\"];\n");
-        
+        // If this is a ListAstNode, make it transparent: don't emit a labeled
+        // node for it, and connect the parent directly to its children.
+        if (node instanceof ListAstNode) {
+            int parentId = id; // keep unique id even if transparent
+            for (AstNode child : node.children()) {
+                int childId = visit(child, sb, idCounter);
+                sb.append("  node").append(parentId).append(" -> node").append(childId).append(";\n");
+            }
+            return parentId;
+        }
+
+        sb.append("  node").append(id)
+          .append(" [label=\"").append(node.label().replace("\"", "\\\"")).append("\"];\n");
 
         for (AstNode child : node.children()) {
             int childId = visit(child, sb, idCounter);
-            
-                sb.append("  node").append(id).append(" -> node").append(childId).append(";\n");
-            
-            
+            sb.append("  node").append(id).append(" -> node").append(childId).append(";\n");
         }
 
         return id;
@@ -977,5 +987,15 @@ class AstDot {
         Files.writeString(Path.of(filename), dot);
         System.out.println("DOT saved to: " + filename);
     }
-}
 
+    // Append-capable export convenience
+    public static void exportToFile(AstNode root, String filename, boolean append) throws IOException {
+        String dot = toDot(root);
+        if (append) {
+            Files.writeString(Path.of(filename), dot, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } else {
+            Files.writeString(Path.of(filename), dot);
+        }
+        System.out.println("DOT saved to: " + filename + (append ? " (appended)" : ""));
+    }
+}
