@@ -30,6 +30,7 @@ Ziel ist die Entwicklung eines vollständigen Lox‑Stacks: Interpreter, Parser,
 - **JsTranspiler:** Funktions- und Klassentranspilation, `super`‑Aufrufe, Warnungen
 - **Tests:** JsTranspilerTest (Basis + kritische Fälle)
 - **Status:** funktionsfähig
+- **Verbesserungspotenzial:** JS-Ausgabe (Instanziierung), detailliertere Warnungen
 
 ---
 
@@ -57,4 +58,4 @@ Ziel ist die Entwicklung eines vollständigen Lox‑Stacks: Interpreter, Parser,
 
 ---
 
-*Stand: 31. Januar 2026*# Lox-Compiler – Projektstand
+*Stand: 31. Januar 2026*
