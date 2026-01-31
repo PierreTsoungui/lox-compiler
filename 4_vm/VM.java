@@ -203,7 +203,7 @@ class Upvalue {
         CallFrame(Val.Obj.Closure c, int offset) { closure = c; slotOffset = offset; }
     }
 
-    public  void interpret(CompiledFunction script) {
+    public void interpret(CompiledFunction script) {
         // Main Script Frame
         Val.Obj.Closure scriptClosure = new Val.Obj.Closure(script, new Upvalue[0]);
         pushFrame(new CallFrame(scriptClosure, 0));
@@ -613,7 +613,7 @@ class Upvalue {
             }
         }
     }
-
+}
 
 void main() {
     testSimpleMath();
@@ -621,6 +621,9 @@ void main() {
     testControlFlow();
    
 }
+
+
+
 
 
 // --- Test 1: Einfache Mathematik (1 + 2 = 3) ---
@@ -695,13 +698,40 @@ void testControlFlow() {
     runScript(ops);
 }
 
+// --- Test 4: Native Funktion (clock) ---
+/* void testNativeFunction() {
+    System.out.println("\n=== Test 4: Native Function (Clock) ===");
+
+    VM vm = new VM();
+    
+    // Native Funktion "clock" registrieren
+    vm.globals.put("clock", new Val.Obj.Native("clock", 0, args -> {
+        return new Val.Num(System.currentTimeMillis() / 1000.0);
+    }));
+
+    List<Op> ops = new ArrayList<>();
+    
+    // Bytecode: print clock();
+    ops.add(new Op.GetGlobal("clock")); // Lade Native Fn auf Stack
+    ops.add(new Op.Call(0));            // Rufe sie auf
+    ops.add(new Op.Print());            // Drucke Ergebnis (Zeitstempel)
+    ops.add(new Op.Nil());
+    ops.add(new Op.Return());
+
+    // Manuelles Starten, da wir Globals vorab manipuliert haben
+    vm.interpret(new CompiledFunction("test_native", 0, ops));
+}*/
 
 // --- Helper ---
-   public void runScript(List<Op> code) {
-        // Wrapper, um eine CompiledFunction zu bauen und die VM zu starten
+void runScript(List<Op> code) {
+    // Wrapper, um eine CompiledFunction zu bauen und die VM zu starten
     CompiledFunction func = new CompiledFunction("script", 0, code);
     new VM().interpret(func);
 }
+/**
+ * Assembler für Lox-Bytecode (Op-basierte VM)
+ *
+ * Wandelt eine Textdarstellung von Opcodes mit Labels
+ * in eine CompiledFunction (List<Op>) um.
+ */
 
-
- }

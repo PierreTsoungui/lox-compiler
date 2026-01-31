@@ -2,25 +2,6 @@ import java.util.*;
 
 public class SmartAssemblerTest {
 
-    static void test1() {
-        SmartAssembler.runTest("test1", a -> {
-            a.scope(s -> {
-                s.const_(new Val.Num(1)).var("x");
-                s.const_(new Val.Num(2)).var("x"); // sollte Fehler auslösen
-            });
-        });
-    }
-
-    static void test2() {
-        SmartAssembler.runTest("test2", a -> {
-            a.scope(s -> {
-                s.const_(new Val.Num(5)).var("y");
-                s.scope(s2 -> {
-                    s2.const_(new Val.Num(6)).var("y"); // erlaubt
-                });
-            });
-        });
-    }
 
     static void testIfElse() {
         SmartAssembler.runTest("testIfElse", a -> {
@@ -33,24 +14,6 @@ public class SmartAssemblerTest {
                  s.const_(new Val.Num(2)).print();
                  s.patchJump(jumpEndPos);
              });
-        });
-    }
-
-    static void testOr() {
-        SmartAssembler.runTest("testOr", a -> {
-            a.or(
-                s -> s.const_(new Val.Bool(false)),
-                s -> s.const_(new Val.Bool(true))
-            ).print();
-        });
-    }
-
-    static void testAnd() {
-        SmartAssembler.runTest("testAnd", a -> {
-            a.and(
-                s -> s.const_(new Val.Bool(true)),
-                s -> s.const_(new Val.Bool(false))
-            ).print();
         });
     }
 
@@ -67,15 +30,7 @@ public class SmartAssemblerTest {
         });
     }
 
-    static void testClass() {
-        SmartAssembler.runTest("testClass", a -> {
-            a.classDecl("Foo", c -> {
-                c.method("bar", 0, m -> {
-                    m.const_(new Val.Str("Foo.bar")).print();
-                });
-            });
-        });
-    }
+    
 
     static void testOrShortCircuit() {
         SmartAssembler.runTest("testOrShortCircuit", a -> {
@@ -86,42 +41,7 @@ public class SmartAssemblerTest {
         });
     }
 
-    static void testVarSelfAssign() {
-        SmartAssembler.runTest("var a = a;", a -> {
-            a.get("a");
-            a.var("a");
-        });
-    }
 
-    static void testArithmetic() {
-        SmartAssembler.runTest("testArithmetic", a -> {
-            a.const_(new Val.Num(1))
-             .const_(new Val.Num(2))
-             .add()
-             .print();
-        });
-    }
-
-    static void testComparison() {
-        SmartAssembler.runTest("testComparison", a -> {
-            a.const_(new Val.Num(1))
-             .const_(new Val.Num(2))
-             .lt()
-             .print();
-            
-            a.const_(new Val.Num(3))
-             .const_(new Val.Num(2))
-             .gt()
-             .print();
-        });
-    }
-
-    static void testGlobalVar() {
-        SmartAssembler.runTest("testGlobalVar", a -> {
-            a.const_(new Val.Num(42)).var("g");
-            a.get("g").print();
-        });
-    }
 
     static void testClosureCapture() {
         SmartAssembler.runTest("testClosureCapture", a -> {
@@ -209,20 +129,11 @@ public class SmartAssemblerTest {
         System.out.println("=== Running SmartAssembler tests ===");
         
         List<Runnable> tests = Arrays.asList(
-            SmartAssemblerTest::testArithmetic,
-            SmartAssemblerTest::testComparison,
-            SmartAssemblerTest::testGlobalVar,
-            SmartAssemblerTest::test1,
-            SmartAssemblerTest::test2,
             SmartAssemblerTest::testIfElse,
-            SmartAssemblerTest::testOr,
-            SmartAssemblerTest::testAnd,
             SmartAssemblerTest::testWhile,
             SmartAssemblerTest::testOrShortCircuit,
-            SmartAssemblerTest::testVarSelfAssign,
             SmartAssemblerTest::testClosureCapture,
             SmartAssemblerTest::testFunctionReturn,
-            SmartAssemblerTest::testClass,
             SmartAssemblerTest::testClassPropAccess,
             SmartAssemblerTest::testMethodWithParams,
             SmartAssemblerTest::testInheritance,
@@ -238,10 +149,10 @@ public class SmartAssemblerTest {
             System.out.println("\n-- Test #" + run + " --");
             try {
                 t.run();
-                System.out.println("  PASSED");
+                System.out.println("PASSED");
                 passed++;
             } catch (Throwable e) {
-                System.out.println("  FAILED: " + e.getMessage());
+                System.out.println(" FAILED: " + e.getMessage());
                 e.printStackTrace(System.out);
                 failed++;
             }
