@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ParserTest {
 
     private static final AtomicInteger dotCounter = new AtomicInteger(1);
+    private static final boolean PRINT_DOT_TO_CONSOLE = true;
 
     /* ===================== BASIS-TESTS ===================== */
 
@@ -113,26 +114,51 @@ public class ParserTest {
     /* ===================== RUNNER ===================== */
 
     public static void runAll() throws Exception {
-        testPrint();
-        testVarDecl();
-        testFunDecl();
-        testIfElse();
-        testWhile();
-        testForDesugared();
-        testAssignment();
-        testCallAndProp();
-        testClass();
-        testReturn();
-        testBinaryExpression();
-        testLiteralAndVariable();
-        testComplexClass();
-        testNestedControlFlow();
-        testMiniProgram();
+        TestCase[] tests = {
+            new TestCase("testPrint", ParserTest::testPrint),
+            new TestCase("testVarDecl", ParserTest::testVarDecl),
+            new TestCase("testFunDecl", ParserTest::testFunDecl),
+            new TestCase("testIfElse", ParserTest::testIfElse),
+            new TestCase("testWhile", ParserTest::testWhile),
+            new TestCase("testForDesugared", ParserTest::testForDesugared),
+            new TestCase("testAssignment", ParserTest::testAssignment),
+            new TestCase("testCallAndProp", ParserTest::testCallAndProp),
+            new TestCase("testClass", ParserTest::testClass),
+            new TestCase("testReturn", ParserTest::testReturn),
+            new TestCase("testBinaryExpression", ParserTest::testBinaryExpression),
+            new TestCase("testLiteralAndVariable", ParserTest::testLiteralAndVariable),
+            new TestCase("testComplexClass", ParserTest::testComplexClass),
+            new TestCase("testNestedControlFlow", ParserTest::testNestedControlFlow),
+            new TestCase("testMiniProgram", ParserTest::testMiniProgram)
+        };
+
+        int passed = 0;
+        for (int i = 0; i < tests.length; i++) {
+            TestCase t = tests[i];
+            System.out.println("\n-- " + t.name + " --");
+            try {
+                t.run.run();
+                System.out.println("PASSED");
+                passed++;
+            } catch (Throwable ex) {
+                System.out.println("FAILED: " + ex.getMessage());
+                ex.printStackTrace(System.out);
+            }
+        }
+
+        System.out.println("\nTests passed: " + passed + "/" + tests.length);
     }
 
     public static void main(String[] args) throws Exception {
         runAll();
-        System.out.println(" Alle Parser-Tests erfolgreich!");
+        System.out.println("Parser-Tests abgeschlossen.");
+    }
+
+    private record TestCase(String name, ThrowingRunnable run) {}
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     /* ===================== HELPER ===================== */
@@ -161,6 +187,9 @@ public class ParserTest {
             Files.writeString(out, section + dot,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND);
+            if (PRINT_DOT_TO_CONSOLE) {
+                System.out.println(section + dot);
+            }
         } catch (IOException e) {
             System.err.println("Failed to write DOT: " + e.getMessage());
         }

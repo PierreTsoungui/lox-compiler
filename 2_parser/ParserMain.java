@@ -8,35 +8,6 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 
-/* ================= Token ================= */
- record Token(TokenType type, String lexem, Object value, int line) {
-    @Override
-    public String toString() {
-        return String.format("TOKEN(%s, %s, %s) on line %d", type, lexem, value, line);
-    }
-
-}
-
-/* ================= TokenType ================= */
-enum TokenType {
-    // Keywords
-    FUN, VAR, IF, ELSE, WHILE, RETURN, AND, OR, NOT, TRUE, FALSE,
-    CLASS, SUPER, FOR, PRINT, THIS, NIL,
-
-    // Symbols & Operators
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
-    LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, MINUS, PLUS, STAR, SLASH, SEMICOLON,
-    EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL,
-    BANG, BANG_EQUAL, DOT,
-
-    // Identifiers & Literals
-    IDENTIFIER, NUMBER, STRING,
-
-    // EOF
-    EOF; 
-}
-
 /* ================= AstNode ================= */
 interface AstNode {
     List<AstNode> children();
@@ -497,20 +468,8 @@ public class ParserMain {
         return lhs;
     }
 
-    static TokenType mapType(Scanner.TokenType st) {
-      return TokenType.valueOf(st.name());
-   }
-
     static ParserMain fromSource(String source) {
-        List<Token> tokens = new Scanner(source).tokenize()
-                .stream()
-                .map(t -> new Token(
-                 mapType(t.type()),    
-                t.lexem(),
-                 t.value(),
-                t.line()
-        ))
-        .toList();
+        List<Token> tokens = new Scanner(source).tokenize();
 
         return new ParserMain(tokens);
     }
@@ -551,11 +510,12 @@ public class ParserMain {
             item(TokenType.IDENTIFIER),      
             superClassOpt,                       
             item(TokenType.LEFT_BRACE),      
-            many(lazy(this::funDecl)), 
+            many(lazy(this::function)), 
             item(TokenType.RIGHT_BRACE)      
         ).map(this::mapClassDecl);
     }
     
+
     Parser<Stmt.Function> function() {
 
         Parser<ListAstNode> parametersOpt = maybe(parameters());
