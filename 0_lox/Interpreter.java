@@ -85,8 +85,8 @@ public class Interpreter {
                 evaluateLogical(left, operator, right);
             case Expr.Set(var object, var name, var value) ->
                 evaluateSet(object, name, value);
-            case Expr.Super(var keyword, var method) ->
-                evaluateSuper(keyword, method);
+            case Expr.Super superExpr ->
+                evaluateSuper(superExpr);
             case Expr.This(var keyword) ->
                 lookUpVariable(keyword, expr);
             case Expr.Unary(var operator, var right) ->
@@ -189,16 +189,19 @@ public class Interpreter {
         throw new RuntimeError(name, "Only instances have fields.");
     }
 
-    private LoxValue evaluateSuper(Token keyword, Token method) {
-        int distance = locals.get(new Expr.Super(keyword, method));
+    private LoxValue evaluateSuper(Expr.Super expr) {
+        Integer distance = locals.get(expr);
+        if (distance == null) {
+            throw new RuntimeError(expr.keyword(), "Undefined 'super' access.");
+        }
         var superclass =
             (LoxValue.Klass) environment.getAt(distance, "super");
         var object =
             (LoxValue.Instance) environment.getAt(distance - 1, "this");
 
-        var fn = superclass.findMethod(method.lexeme());
+        var fn = superclass.findMethod(expr.method().lexeme());
         if (fn == null) {
-            throw new RuntimeError(method, "Undefined property.");
+            throw new RuntimeError(expr.method(), "Undefined property.");
         }
         return fn.bind(object);
     }
