@@ -2,107 +2,38 @@
 
 ## Einleitung
 
-Ziel dieser Projektarbeit ist die schrittweise Umsetzung zentraler Konzepte des Compilerbaus
-anhand der Programmiersprache Lox. Als inhaltliche und strukturelle Referenz dient das Werk
-„Crafting Interpreters“ von Bob Nystrom, in dem ein Interpreter sowie ein ByteCode-Compiler
-für Lox entwickelt werden.
+Dieses Projekt behandelt die schrittweise Umsetzung eines **Lox-Compilers** und verfolgt dabei die zentralen Konzepte des Compilerbaus. Ziel ist es, die Sprache Lox von der Quelltextanalyse über die AST-Generierung bis hin zur Ausführung auf einer virtuellen Maschine zu bearbeiten.  
 
-Ausgehend von der Referenzimplementierung wurde der Lox-Interpreter zunächst an moderne
-Sprachkonzepte von Java angepasst, um eine saubere und gut strukturierte Ausgangsbasis
-für weitere Erweiterungen zu schaffen. Darauf aufbauend werden zentrale Komponenten der
-Sprachverarbeitung schrittweise durch eigene Implementierungen ersetzt.
+Besonderer Fokus liegt auf der Nutzung moderner **Java-Sprachkonzepte** wie **Records, Pattern Matching, sealed Interfaces/Classes, Lambda-Ausdrücken** und **Streams**, um den Code klar, modular und wartbar zu gestalten.  
 
-Im Fokus des Projekts stehen insbesondere der Austausch des Scanners durch eine
-regex-basierte Tokenisierung, die Neuentwicklung des Parsers mittels Parserkombinatoren
-sowie die Implementierung in Java realisierten Lox Virtual Machine zur
-Ausführung von ByteCode. Ziel ist es, die einzelnen Phasen der Sprachverarbeitung klar
-voneinander zu trennen und vergleichbar zu machen.
+Das Projekt gliedert sich in sechs aufeinander aufbauende Phasen:
 
-Nicht alle in „Crafting Interpreters“ beschriebenen Komponenten wurden vollständig
-übernommen oder umgesetzt. Insbesondere ein Transpiler nach Java, Kotlin oder JavaScript
-ist nicht Bestandteil dieser Arbeit. Der Schwerpunkt liegt stattdessen auf der ByteCode-
-basierten Ausführung und der dazugehörigen Toolchain aus Compiler, Assembler und VM.
+1. **Vorbereitung (Aufgabe 0)**  
+   Der ursprüngliche Lox-Interpreter wurde strukturell überarbeitet, modernisiert und in Dateien klar strukturiert. Das Projekt ist ohne Build-Werkzeug lauffähig.  
 
+2. **Scanner-Austausch (Aufgabe 1)**  
+   Der alte Scanner wurde durch eine Implementierung auf Basis **regulärer Ausdrücke** ersetzt.  
 
-## 0. Ausgangsbasis: Refactoring des Lox-Interpreters
+3. **Parser-Austausch (Aufgabe 2)**  
+   - **AST-Generierung:** Einsatz von **Parserkombinatoren** zur Erzeugung eines ASTLox, der die bestehende Lox-Implementierung unverändert weiter nutzen kann.  
+   - **Visualisierung:** Der AST kann als **Graphviz-dot-Datei** ausgegeben werden, um die Struktur grafisch darzustellen.  
 
-Als Ausgangspunkt für die Projektarbeit diente der in „Crafting Interpreters“ beschriebene
-Lox-Interpreter in Java. Diese Referenzimplementierung stellt eine funktionale, jedoch
-didaktisch orientierte Basis dar, die für eine weitergehende experimentelle Erweiterung
-zunächst strukturell überarbeitet wurde.
+4. **Transpiler (Aufgabe 3)**  
+   Der ASTLox wird in ein semantisch äquivalentes Programm in **JavaScript** übersetzt.  
 
-Ziel dieses ersten Projektabschnitts war es, den bestehenden Interpreter an moderne
-Sprachkonzepte von Java anzupassen und eine klar gegliederte Codebasis zu schaffen.
-Dabei kamen unter anderem Records zur Modellierung einfacher, unveränderlicher
-Datenstrukturen, sealed Interfaces bzw. Classes zur klaren Typabgrenzung sowie
-Pattern Matching zur Vereinfachung von Fallunterscheidungen zum Einsatz.
+5. **Lox-VM & Assembler (Aufgabe 4)**  
+   - **Lox-VMJava:** Für die Ausführung von Bytecode-Programmen, die durch den Bytecode-Compiler erzeugt wurden, wird die Lox-VMJava verwendet.  
+   - **Smart-Assembler:** Für die Erzeugung von Bytecode wird ein **Smart-Assembler** eingesetzt, der als **High-Level DSL in Java** implementiert ist. Er ermöglicht die programmatische Generierung von Bytecode über Methodenaufrufe, z. B. für Konstanten, Operationen, Schleifen, Bedingungen, Funktionen und Klassen. Sprung-Offsets, lokale Variablen, Upvalues und Funktionsaufrufe werden automatisch korrekt aufgelöst, sodass der erzeugte Bytecode direkt von der Lox-VMJava ausgeführt werden kann.
 
-Darüber hinaus wurde der Code in logisch zusammenhängende Dateien aufgeteilt,
-sodass die einzelnen Komponenten wie Scanner, Parser, AST und Interpreter klar
-voneinander getrennt sind. Diese Struktur erleichtert den späteren Austausch einzelner
-Teile der Sprachverarbeitung, ohne die übrigen Komponenten anpassen zu müssen.
+6. **Bytecode-Compiler (Aufgabe 5)**  
+   Aufbauend auf ScannerRegEx und Parserkombinatoren erzeugt der Compiler aus dem ASTLox **Bytecode für die Lox-VMJava**. Die komplette Toolchain aus Compiler, Assembler und VM ermöglicht so die Ausführung von Lox-Programmen.  
 
-Das Refactoring dient somit nicht primär der Erweiterung des Funktionsumfangs,
-sondern der Schaffung einer stabilen und gut verständlichen Ausgangsbasis für die
-folgenden Projektstufen, in denen Scanner, Parser und Ausführungsmodell schrittweise
-durch eigene Implementierungen ersetzt werden.
+Alle Phasen sind in eigenen Ordnern dokumentiert, inklusive detaillierter Beschreibungen, Beispielen und Nutzungshinweisen.
 
-
-### Beispielausführung
-
-Zur Überprüfung der Lauffähigkeit nach dem Refactoring wurde der Interpreter
-mit einfachen Lox-Programmen getestet.
-
-```lox
-var a = 10;
-var b = 20;
-print a + b;
-```
-**Ausgabe:**
-
-```text
-30
-```
-
-## 1. Scanner mit regulären Ausdrücken
- - Motivation für den Austausch des Original-Scanners
- - Tokenisierung mittels regulärer Ausdrücke
- - Vergleich: Originalscanner vs. Regex-Scanner
- - Integration in den bestehenden Interpreter
- - Beispielhafter Scan‑Durchlauf
-
-Scanner (Implementation: `2_parser/Scanner.java`)
-
-## 2. Parser mit Parserkombinatoren
-- Motivation für Parserkombinatoren
-- Abbildung der Lox-Grammatik
-- Aufbau des ASTLox
-- Trennung von Parsing und Interpretation
-- (Optional) Visualisierung des AST
-
-## 4. Lox-VM (Java) und Assembler
-- Motivation für eine ByteCode-basierte Ausführung
-- Grundidee der Lox-VM
-- Stack-basiertes Ausführungsmodell
-- Überblick über zentrale Opcodes
-- Assembler: Textformat für ByteCode
-- Beispiel: Assembler-Programm und Ausführung
-
-## 5. ByteCode-Compiler
-- Einordnung in die Toolchain
-- ASTLox als Eingabe
-- Generierung von Assembler-Code
-- Zusammenspiel von Compiler, Assembler und VM
-- Beispielhafter End-to-End-Durchlauf
-
-## Dokumentation und Code-Einbindung
-- Ziel der automatisierten Dokumentation
-- Konzept der code-nahen Einbindung
-- Vorteile gegenüber manuellem Kopieren
-- Aktueller Stand der Umsetzung
-
-## Fazit
-- Zusammenfassung der erreichten Ergebnisse
-- Zentrale Erkenntnisse zum Compilerbau
-- Reflexion über Designentscheidungen
-- Mögliche Erweiterungen (Ausblick)
+## Navigation
+- Aufgabe 0: [0_lox/README.md](0_lox/README.md)  
+- Aufgabe 1: [1_Scanner/README.md](1_Scanner/README.md)  
+- Aufgabe 2: [2_parser/README.md](2_parser/README.md)  
+- Aufgabe 3: [3_transpiler/README.md](3_transpiler/README.md)  
+- Aufgabe 4: [4_vm/README.md](4_vm/README.md)  
+- Aufgabe 5: [5_compiler/README.md](5_compiler/README.md)
