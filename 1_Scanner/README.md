@@ -1,25 +1,29 @@
 # 1_Scanner – Regex-Scanner
 
 ## Ziel der Aufgabe 1
-Der Lox-Scanner wurde modernisiert und durch eine **regex-basierte Implementierung** ersetzt, die Tokens systematisch aus dem Quelltext extrahiert.  
-Dies erlaubt:
-- **saubere Trennung von Tokenisierung und Parsing**,  
-- **leichte Erweiterbarkeit** bei neuen Token-Typen,  
-- volle Kompatibilität mit dem Interpreter aus Aufgabe 0.
+Der Scanner wurde durch eine **regex‑basierte Implementierung** ersetzt, die Tokens
+systematisch aus dem Quelltext extrahiert. Das ermöglicht:
+- **klare Trennung** von Tokenisierung und Parsing,
+- **leichte Erweiterbarkeit** bei neuen Token‑Typen,
+- **Kompatibilität** mit der Pipeline aus Aufgabe 0.
 
 ---
 
 ## Umsetzung (Kurzfassung)
-- **Regex-basierte Tokenisierung:** Jede Kategorie von Token (Zahlen, Strings, Identifier, Schlüsselwörter, Operatoren, Separatoren) wird durch einen regulären Ausdruck erkannt.
-- **Automatisches Klassifizieren:** Jedes Token erhält Typ, Lexem, Wert und Zeilenangabe.
-- **Zentrale Fehlerbehandlung:** Unbekannte Zeichen werden direkt gemeldet.
-- **Pipeline-kompatibel:** Liefert eine Liste von `Token`, die direkt vom Parser weiterverarbeitet werden kann.
+- **Regex‑basierte Tokenisierung:** Jede Token‑Kategorie besitzt ein eigenes Pattern.
+- **Automatische Klassifizierung:** Jedes Token bekommt Typ, Lexem, Wert und Zeile.
+- **Fehlerbehandlung im Scanner:** Unbekannte Zeichen werden sofort gemeldet.
+- **Parser‑kompatibel:** Rückgabe ist `List<Token>` (direkt weiterverwendbar).
+
+**Hinweis zur Erstellung:**
+Bei der Definition der Regex‑Patterns und bei der Code‑Optimierung wurde KI‑Unterstützung genutzt.
 
 ---
 
-## Aufbau von `Scanner.java`
+## Aufbau von Scanner.java
+Datei: [1_Scanner/Scanner.java](Scanner.java)
 
-### 1. Felder und Konstruktor
+### 1) Felder und Konstruktor
 ```java
 private final String source;        // Quelltext
 private final List<Token> tokens;   // generierte Tokenliste
@@ -29,82 +33,78 @@ private boolean error;              // Flag bei Scanner-Fehlern
 public Scanner(String source) { ... }  // Initialisierung
 ```
 **Erklärung**
+- `source`: kompletter Lox‑Quelltext.
+- `tokens`: Ergebnisliste der erzeugten Tokens.
+- `line`: aktuelle Zeilennummer (für Fehlerberichte).
+- `error`: wird gesetzt, sobald ein unbekanntes Zeichen erkannt wird.
 
-**1.source** :enthält den kompletten Lox-Quelltext.
-
-**2.tokens**: Liste der erzeugten Tokens, die der Parser verarbeiten kann.
-
-**3.line**: aktuelle Zeile im Quelltext (für Fehlerberichte).
-
-**4.error**:Flag, falls ein unbekanntes Zeichen gefunden wird.
-
-### 2. Token-Definition
+### 2) Token‑Definition
 ```java
 public record Token(TokenType type, String lexem, Object value, int line)
 ```
 **Erklärung**
-**1.type**: Kategorie des Tokens (NUMBER, IDENTIFIER, PLUS, etc.).
+- `type`: Kategorie (z. B. `NUMBER`, `IDENTIFIER`, `PLUS`).
+- `lexem`: exakter Text aus dem Quellcode.
+- `value`: optional konvertierter Wert (z. B. `Double`, `String`).
+- `line`: Zeilennummer im Quelltext.
 
-**2.lexem** :exakte Textdarstellung im Quellcode.
-
-**3.value**: ggf. konvertierter Wert (Double, String etc.).
-
-**4.line** : Zeilennummer im Quelltext.
 **Beispiele:**
 ```java
 TOKEN(NUMBER, 42, 42.0) on line 3
 TOKEN(VAR, var, null) on line 1
 ```
 
-### 3. Token Patterns
+### 3) Token‑Patterns (Enum TokenPattern)
+Jeder Token‑Typ wird durch einen Regex erkannt. Ein `handler` erzeugt den Token
+oder führt Speziallogik aus (z. B. Zeilenzähler, Kommentare, Whitespace).
 
-Jeder Token-Typ wird durch die enum TokenPattern definiert:
+**Wichtige Patterns (Auszug):**
+```java
+NUMBER("(?<NUMBER>[0-9]+(\\.[0-9]+)?)", (m, t) ->
+    t.addToken(TokenType.NUMBER, m.group("NUMBER"), Double.parseDouble(m.group("NUMBER"))))
 
-**regex**: Regulärer Ausdruck zur Erkennung.
+STRING("(?<STRING>\"[^\"]*\")", (m, t) ->
+    t.addToken(TokenType.STRING, m.group("STRING"),
+        m.group("STRING").substring(1, m.group("STRING").length() - 1)))
 
-**handler** : Funktion, die den Token erzeugt und in die Liste einfügt.
-
-***Beispiel**
-```Java
-
-NUMBER("(?<NUMBER>[0-9]+(\\.[0-9]+)?)", (m, t) -> t.addToken(TokenType.NUMBER, m.group("NUMBER"), Double.parseDouble(m.group("NUMBER")))),
-
-STRING("(?<STRING>\"[^\"]*\")", (m,t) -> t.addToken(TokenType.STRING, m.group("STRING"), m.group("STRING").substring(1,m.group("STRING").length()-1))),
-
+IDENTIFIER("(?<IDENTIFIER>[a-zA-Z_][a-zA-Z0-9_]*)", (m, t) -> {
+    String v = m.group("IDENTIFIER");
+    t.addToken(TokenType.keywords.getOrDefault(v, TokenType.IDENTIFIER), v, null);
+})
 ```
-### 4. Tokenizing-Logik
 
-Durchlauf des gesamten Quelltextes (pos = 0 ... source.length()).
+**Hinweise:**
+- `LINE_COMMENT` überspringt `//...` bis zum Zeilenende.
+- `NEWLINE` erhöht `line`.
+- `WHITESPACE` wird ignoriert.
+- `UNKNOWN` meldet Fehler.
 
-Für jede Position wird geprüft, ob ein Pattern lookingAt() liefert.
+### 4) Tokenizing‑Logik (Ablauf)
+Die Methode `tokenize()` scannt den Quelltext von links nach rechts.
+Für jede Position wird geprüft, ob **ein Pattern `lookingAt()` matched**.
+Der passende `handler` erzeugt Token oder führt Speziallogik aus.
 
-Passender handler erzeugt Token und fügt es zur Liste hinzu.
-
-Fehlerhafte Zeichen lösen eine Meldung aus:
-```Java
+Bei unbekannten Zeichen wird sofort ein Fehler gemeldet:
+```java
 error("Unbekanntes Zeichen: " + source.charAt(pos));
 ```
-Am Ende wird ein EOF-Token angehängt.
+Am Ende wird ein `EOF`‑Token angehängt.
 
-### 6. Methoden im Scanner
-tokenize()
+### 5) Wichtige Methoden
+**`tokenize()`**
+- Startet das Pattern‑Matching über den gesamten Quelltext.
+- Bricht bei Fehlern ab und liefert sonst die Tokenliste.
 
-Führt die eigentliche Tokenisierung durch.
+**`addToken(TokenType type, String lexem, Object value)`**
+- Erzeugt ein `Token` und fügt es der Liste hinzu.
 
-Gibt eine List<Token> zurück.
+**`handleSeparator(String sep, int endIndex)`**
+- Spezialfall für Separatoren (z. B. `.`).
+- Verwendet die `sep`‑Mapping‑Tabelle für `(`, `)`, `{`, `}`, `,`, `;`, `.` usw.
+**`error(String msg)`**
+- Meldet Scanner‑Fehler inkl. Zeilennummer und setzt `error = true`.
 
-addToken(TokenType type, String lexem, Object value)
-
-Fügt ein Token der Liste hinzu.
-
-handleSeparator(String sep, int endIndex)
-
-Spezielle Behandlung von Punkten bei Zahlen (3.14) vs. Trenner (.).
-
-error(String msg)
-
-Meldet Scanner-Fehler mit Zeilenangabe und setzt error = true.
-### 7. Beispiel für Tokenisierung
+### 6) Beispiel für Tokenisierung
 ```Java
 String source = """
     var a = 10;
@@ -114,7 +114,7 @@ Scanner scanner = new Scanner(source);
 List<Scanner.Token> tokens = scanner.tokenize();
 tokens.forEach(System.out::println);
 ```
-**Auagabe**
+**Ausgabe**
 ```Java
 TOKEN(VAR, var, null) on line 1
 TOKEN(IDENTIFIER, a, null) on line 1
@@ -129,8 +129,21 @@ TOKEN(SEMICOLON, ;, null) on line 2
 TOKEN(EOF, , null) on line 3
 ```
 
-### 8. Testmethoden
+### 7) Testmethoden
+- `Scanner.test(String input)` – Tokenisiert einen String und gibt Tokens aus.
+- `Scanner.testFile(String filename)` – Liest eine Datei und tokenisiert sie.
 
-Scanner.test(String input) – Testet einen String und gibt Tokens aus.
+**Zusätzliches Testprogramm:**
+- [1_Scanner/TestScanner.java](TestScanner.java) – Eigenständige Testklasse zur Überprüfung der Scanner‑Funktionalität.
 
-Scanner.testFile(String filename) – Liest eine Datei ein und tokenisiert sie.
+*Hinweis (nach Abgabe): Vereinfachung der Punkt‑Behandlung.*
+
+Nach der Abgabe wurde die Methode `handleSeparator` vereinfacht: Die spezielle
+Behandlung des Punktes (`.`) wurde entfernt, da Fließkommazahlen bereits durch
+das NUMBER‑Pattern `[0-9]+(\.[0-9]+)?` erkannt werden. Der Punkt wird nun
+als Separator‑Token behandelt, wenn er nicht Teil einer Zahl ist. Dadurch wird
+die Scanner‑Logik einfacher, ohne funktionale Auswirkungen.
+
+## Navigation
+- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Weiter zu Aufgabe 2: [2_parser/README.md](/2_parser/README.md)
