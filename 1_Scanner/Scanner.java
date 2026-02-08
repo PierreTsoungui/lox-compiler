@@ -38,10 +38,6 @@ public class Scanner {
     }
 
     private void handleSeparator(String sep, int endIndex) {
-        if (sep.equals(".") && !tokens.isEmpty() && tokens.get(tokens.size()-1).type()==TokenType.NUMBER
-                && endIndex < source.length() && Character.isDigit(source.charAt(endIndex))) {
-            addToken(TokenType.DOT, sep, null); return;
-        }
         addToken(TokenType.sep.get(sep), sep, null);
     }
 
