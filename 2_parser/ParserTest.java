@@ -44,8 +44,8 @@ public class ParserTest {
     }
 
     public static void testClass() throws Exception {
-        runCase("class A { fun m() {} }");
-        runCase("class B < A { fun f() {} }");
+        runCase("class A {  m() {} }");
+        runCase("class B < A {  f() {} }");
     }
 
     public static void testReturn() throws Exception {
@@ -73,10 +73,10 @@ public class ParserTest {
     public static void testComplexClass() throws Exception {
         runCase("""
             class Animal {
-                fun speak() { print "noise"; }
+                 speak() { print "noise"; }
             }
             class Dog < Animal {
-                fun speak() {
+                 speak() {
                     super.speak();
                     print "woof";
                 }

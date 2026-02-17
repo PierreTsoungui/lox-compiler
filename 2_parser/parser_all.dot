@@ -1,0 +1,1774 @@
+
+// --- case01 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="print-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case02 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="42.0"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case03 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl f"];
+  node2 [label="print-stmt"];
+  node3 [label="x"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case04 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="if-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="1.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node5 [label="print-stmt"];
+  node6 [label="2.0"];
+  node5 -> node6;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case05 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="while-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="0.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case06 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="block"];
+  node2 [label="Var(i)"];
+  node3 [label="i"];
+  node2 -> node3;
+  node4 [label="0.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node5 [label="while-stmt"];
+  node6 [label="Binary:<"];
+  node7 [label="i"];
+  node6 -> node7;
+  node8 [label="10.0"];
+  node6 -> node8;
+  node5 -> node6;
+  node9 [label="block"];
+  node10 [label="print-stmt"];
+  node11 [label="i"];
+  node10 -> node11;
+  node9 -> node10;
+  node12 [label="expr-stmt"];
+  node13 [label="Assign"];
+  node14 [label="Binary:+"];
+  node15 [label="i"];
+  node14 -> node15;
+  node16 [label="1.0"];
+  node14 -> node16;
+  node13 -> node14;
+  node12 -> node13;
+  node9 -> node12;
+  node5 -> node9;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case07 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Assign"];
+  node3 [label="Binary:+"];
+  node4 [label="b"];
+  node3 -> node4;
+  node5 [label="c"];
+  node3 -> node5;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case08 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Get(.field)"];
+  node3 [label="Call"];
+  node4 [label="Get(.method)"];
+  node5 [label="obj"];
+  node4 -> node5;
+  node3 -> node4;
+  node6 [label="1.0"];
+  node3 -> node6;
+  node7 [label="2.0"];
+  node3 -> node7;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case09 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl g"];
+  node2 [label="return"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case10 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case11 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:*"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node4 [label="()"];
+  node5 [label="Binary:+"];
+  node6 [label="4.0"];
+  node5 -> node6;
+  node7 [label="5.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case12 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:=="];
+  node3 [label="a"];
+  node2 -> node3;
+  node4 [label="b"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case13 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:<"];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case14 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:!="];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case15 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Logical:or"];
+  node3 [label="Logical:and"];
+  node4 [label="a"];
+  node3 -> node4;
+  node5 [label="b"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="c"];
+  node2 -> node6;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case16 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case17 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case18 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="nil"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case19 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="x"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case20 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="0.0"];
+  node1 -> node3;
+  node0 -> node1;
+  node4 [label="while-stmt"];
+  node5 [label="Binary:<"];
+  node6 [label="x"];
+  node5 -> node6;
+  node7 [label="10.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node8 [label="block"];
+  node9 [label="if-stmt"];
+  node10 [label="Logical:and"];
+  node11 [label="Binary:<"];
+  node12 [label="x"];
+  node11 -> node12;
+  node13 [label="5.0"];
+  node11 -> node13;
+  node10 -> node11;
+  node14 [label="Binary:!="];
+  node15 [label="x"];
+  node14 -> node15;
+  node16 [label="3.0"];
+  node14 -> node16;
+  node10 -> node14;
+  node9 -> node10;
+  node17 [label="block"];
+  node18 [label="print-stmt"];
+  node19 [label="x"];
+  node18 -> node19;
+  node17 -> node18;
+  node9 -> node17;
+  node20 [label="block"];
+  node21 [label="print-stmt"];
+  node22 [label="Binary:+"];
+  node23 [label="x"];
+  node22 -> node23;
+  node24 [label="1.0"];
+  node22 -> node24;
+  node21 -> node22;
+  node20 -> node21;
+  node9 -> node20;
+  node8 -> node9;
+  node25 [label="expr-stmt"];
+  node26 [label="Assign"];
+  node27 [label="Binary:+"];
+  node28 [label="x"];
+  node27 -> node28;
+  node29 [label="1.0"];
+  node27 -> node29;
+  node26 -> node27;
+  node25 -> node26;
+  node8 -> node25;
+  node4 -> node8;
+  node0 -> node4;
+}
+
+// --- case21 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl fib"];
+  node2 [label="if-stmt"];
+  node3 [label="Binary:<="];
+  node4 [label="n"];
+  node3 -> node4;
+  node5 [label="1.0"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="return"];
+  node7 [label="n"];
+  node6 -> node7;
+  node2 -> node6;
+  node1 -> node2;
+  node8 [label="return"];
+  node9 [label="Binary:+"];
+  node10 [label="Call"];
+  node11 [label="fib"];
+  node10 -> node11;
+  node12 [label="Binary:-"];
+  node13 [label="n"];
+  node12 -> node13;
+  node14 [label="1.0"];
+  node12 -> node14;
+  node10 -> node12;
+  node9 -> node10;
+  node15 [label="Call"];
+  node16 [label="fib"];
+  node15 -> node16;
+  node17 [label="Binary:-"];
+  node18 [label="n"];
+  node17 -> node18;
+  node19 [label="2.0"];
+  node17 -> node19;
+  node15 -> node17;
+  node9 -> node15;
+  node8 -> node9;
+  node1 -> node8;
+  node0 -> node1;
+  node20 [label="block"];
+  node21 [label="Var(i)"];
+  node22 [label="i"];
+  node21 -> node22;
+  node23 [label="0.0"];
+  node21 -> node23;
+  node20 -> node21;
+  node24 [label="while-stmt"];
+  node25 [label="Binary:<"];
+  node26 [label="i"];
+  node25 -> node26;
+  node27 [label="5.0"];
+  node25 -> node27;
+  node24 -> node25;
+  node28 [label="block"];
+  node29 [label="block"];
+  node30 [label="print-stmt"];
+  node31 [label="Call"];
+  node32 [label="fib"];
+  node31 -> node32;
+  node33 [label="i"];
+  node31 -> node33;
+  node30 -> node31;
+  node29 -> node30;
+  node28 -> node29;
+  node34 [label="expr-stmt"];
+  node35 [label="Assign"];
+  node36 [label="Binary:+"];
+  node37 [label="i"];
+  node36 -> node37;
+  node38 [label="1.0"];
+  node36 -> node38;
+  node35 -> node36;
+  node34 -> node35;
+  node28 -> node34;
+  node24 -> node28;
+  node20 -> node24;
+  node0 -> node20;
+}
+
+// --- case01 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="print-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case02 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="42.0"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case03 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl f"];
+  node2 [label="print-stmt"];
+  node3 [label="x"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case04 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="if-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="1.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node5 [label="print-stmt"];
+  node6 [label="2.0"];
+  node5 -> node6;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case05 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="while-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="0.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case06 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="block"];
+  node2 [label="Var(i)"];
+  node3 [label="i"];
+  node2 -> node3;
+  node4 [label="0.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node5 [label="while-stmt"];
+  node6 [label="Binary:<"];
+  node7 [label="i"];
+  node6 -> node7;
+  node8 [label="10.0"];
+  node6 -> node8;
+  node5 -> node6;
+  node9 [label="block"];
+  node10 [label="print-stmt"];
+  node11 [label="i"];
+  node10 -> node11;
+  node9 -> node10;
+  node12 [label="expr-stmt"];
+  node13 [label="Assign"];
+  node14 [label="Binary:+"];
+  node15 [label="i"];
+  node14 -> node15;
+  node16 [label="1.0"];
+  node14 -> node16;
+  node13 -> node14;
+  node12 -> node13;
+  node9 -> node12;
+  node5 -> node9;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case07 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Assign"];
+  node3 [label="Binary:+"];
+  node4 [label="b"];
+  node3 -> node4;
+  node5 [label="c"];
+  node3 -> node5;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case08 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Get(.field)"];
+  node3 [label="Call"];
+  node4 [label="Get(.method)"];
+  node5 [label="obj"];
+  node4 -> node5;
+  node3 -> node4;
+  node6 [label="1.0"];
+  node3 -> node6;
+  node7 [label="2.0"];
+  node3 -> node7;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case09 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl g"];
+  node2 [label="return"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case10 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case11 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:*"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node4 [label="()"];
+  node5 [label="Binary:+"];
+  node6 [label="4.0"];
+  node5 -> node6;
+  node7 [label="5.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case12 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:=="];
+  node3 [label="a"];
+  node2 -> node3;
+  node4 [label="b"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case13 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:<"];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case14 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:!="];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case15 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Logical:or"];
+  node3 [label="Logical:and"];
+  node4 [label="a"];
+  node3 -> node4;
+  node5 [label="b"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="c"];
+  node2 -> node6;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case16 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case17 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case18 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="nil"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case19 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="x"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case20 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="0.0"];
+  node1 -> node3;
+  node0 -> node1;
+  node4 [label="while-stmt"];
+  node5 [label="Binary:<"];
+  node6 [label="x"];
+  node5 -> node6;
+  node7 [label="10.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node8 [label="block"];
+  node9 [label="if-stmt"];
+  node10 [label="Logical:and"];
+  node11 [label="Binary:<"];
+  node12 [label="x"];
+  node11 -> node12;
+  node13 [label="5.0"];
+  node11 -> node13;
+  node10 -> node11;
+  node14 [label="Binary:!="];
+  node15 [label="x"];
+  node14 -> node15;
+  node16 [label="3.0"];
+  node14 -> node16;
+  node10 -> node14;
+  node9 -> node10;
+  node17 [label="block"];
+  node18 [label="print-stmt"];
+  node19 [label="x"];
+  node18 -> node19;
+  node17 -> node18;
+  node9 -> node17;
+  node20 [label="block"];
+  node21 [label="print-stmt"];
+  node22 [label="Binary:+"];
+  node23 [label="x"];
+  node22 -> node23;
+  node24 [label="1.0"];
+  node22 -> node24;
+  node21 -> node22;
+  node20 -> node21;
+  node9 -> node20;
+  node8 -> node9;
+  node25 [label="expr-stmt"];
+  node26 [label="Assign"];
+  node27 [label="Binary:+"];
+  node28 [label="x"];
+  node27 -> node28;
+  node29 [label="1.0"];
+  node27 -> node29;
+  node26 -> node27;
+  node25 -> node26;
+  node8 -> node25;
+  node4 -> node8;
+  node0 -> node4;
+}
+
+// --- case21 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl fib"];
+  node2 [label="if-stmt"];
+  node3 [label="Binary:<="];
+  node4 [label="n"];
+  node3 -> node4;
+  node5 [label="1.0"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="return"];
+  node7 [label="n"];
+  node6 -> node7;
+  node2 -> node6;
+  node1 -> node2;
+  node8 [label="return"];
+  node9 [label="Binary:+"];
+  node10 [label="Call"];
+  node11 [label="fib"];
+  node10 -> node11;
+  node12 [label="Binary:-"];
+  node13 [label="n"];
+  node12 -> node13;
+  node14 [label="1.0"];
+  node12 -> node14;
+  node10 -> node12;
+  node9 -> node10;
+  node15 [label="Call"];
+  node16 [label="fib"];
+  node15 -> node16;
+  node17 [label="Binary:-"];
+  node18 [label="n"];
+  node17 -> node18;
+  node19 [label="2.0"];
+  node17 -> node19;
+  node15 -> node17;
+  node9 -> node15;
+  node8 -> node9;
+  node1 -> node8;
+  node0 -> node1;
+  node20 [label="block"];
+  node21 [label="Var(i)"];
+  node22 [label="i"];
+  node21 -> node22;
+  node23 [label="0.0"];
+  node21 -> node23;
+  node20 -> node21;
+  node24 [label="while-stmt"];
+  node25 [label="Binary:<"];
+  node26 [label="i"];
+  node25 -> node26;
+  node27 [label="5.0"];
+  node25 -> node27;
+  node24 -> node25;
+  node28 [label="block"];
+  node29 [label="block"];
+  node30 [label="print-stmt"];
+  node31 [label="Call"];
+  node32 [label="fib"];
+  node31 -> node32;
+  node33 [label="i"];
+  node31 -> node33;
+  node30 -> node31;
+  node29 -> node30;
+  node28 -> node29;
+  node34 [label="expr-stmt"];
+  node35 [label="Assign"];
+  node36 [label="Binary:+"];
+  node37 [label="i"];
+  node36 -> node37;
+  node38 [label="1.0"];
+  node36 -> node38;
+  node35 -> node36;
+  node34 -> node35;
+  node28 -> node34;
+  node24 -> node28;
+  node20 -> node24;
+  node0 -> node20;
+}
+
+// --- case22 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="print-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case23 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="42.0"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case24 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl f"];
+  node2 [label="print-stmt"];
+  node3 [label="x"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case25 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="if-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="1.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node5 [label="print-stmt"];
+  node6 [label="2.0"];
+  node5 -> node6;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case26 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="while-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="0.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case27 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="block"];
+  node2 [label="Var(i)"];
+  node3 [label="i"];
+  node2 -> node3;
+  node4 [label="0.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node5 [label="while-stmt"];
+  node6 [label="Binary:<"];
+  node7 [label="i"];
+  node6 -> node7;
+  node8 [label="10.0"];
+  node6 -> node8;
+  node5 -> node6;
+  node9 [label="block"];
+  node10 [label="print-stmt"];
+  node11 [label="i"];
+  node10 -> node11;
+  node9 -> node10;
+  node12 [label="expr-stmt"];
+  node13 [label="Assign"];
+  node14 [label="Binary:+"];
+  node15 [label="i"];
+  node14 -> node15;
+  node16 [label="1.0"];
+  node14 -> node16;
+  node13 -> node14;
+  node12 -> node13;
+  node9 -> node12;
+  node5 -> node9;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case28 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Assign"];
+  node3 [label="Binary:+"];
+  node4 [label="b"];
+  node3 -> node4;
+  node5 [label="c"];
+  node3 -> node5;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case29 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Get(.field)"];
+  node3 [label="Call"];
+  node4 [label="Get(.method)"];
+  node5 [label="obj"];
+  node4 -> node5;
+  node3 -> node4;
+  node6 [label="1.0"];
+  node3 -> node6;
+  node7 [label="2.0"];
+  node3 -> node7;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case30 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="A"];
+  node1 -> node2;
+  node3 [label="funDecl m"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case31 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="B"];
+  node1 -> node2;
+  node3 [label="A"];
+  node1 -> node3;
+  node4 [label="funDecl f"];
+  node1 -> node4;
+  node0 -> node1;
+}
+
+// --- case32 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl g"];
+  node2 [label="return"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case33 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case34 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:*"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node4 [label="()"];
+  node5 [label="Binary:+"];
+  node6 [label="4.0"];
+  node5 -> node6;
+  node7 [label="5.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case35 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:=="];
+  node3 [label="a"];
+  node2 -> node3;
+  node4 [label="b"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case36 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:<"];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case37 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:!="];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case38 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Logical:or"];
+  node3 [label="Logical:and"];
+  node4 [label="a"];
+  node3 -> node4;
+  node5 [label="b"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="c"];
+  node2 -> node6;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case39 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case40 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case41 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="nil"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case42 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="x"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case43 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="Animal"];
+  node1 -> node2;
+  node3 [label="funDecl speak"];
+  node4 [label="print-stmt"];
+  node5 [label="noise"];
+  node4 -> node5;
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+  node6 [label="ClassDecl"];
+  node7 [label="Dog"];
+  node6 -> node7;
+  node8 [label="Animal"];
+  node6 -> node8;
+  node9 [label="funDecl speak"];
+  node10 [label="expr-stmt"];
+  node11 [label="Call"];
+  node12 [label="super.speak"];
+  node11 -> node12;
+  node10 -> node11;
+  node9 -> node10;
+  node13 [label="print-stmt"];
+  node14 [label="woof"];
+  node13 -> node14;
+  node9 -> node13;
+  node6 -> node9;
+  node0 -> node6;
+}
+
+// --- case44 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="0.0"];
+  node1 -> node3;
+  node0 -> node1;
+  node4 [label="while-stmt"];
+  node5 [label="Binary:<"];
+  node6 [label="x"];
+  node5 -> node6;
+  node7 [label="10.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node8 [label="block"];
+  node9 [label="if-stmt"];
+  node10 [label="Logical:and"];
+  node11 [label="Binary:<"];
+  node12 [label="x"];
+  node11 -> node12;
+  node13 [label="5.0"];
+  node11 -> node13;
+  node10 -> node11;
+  node14 [label="Binary:!="];
+  node15 [label="x"];
+  node14 -> node15;
+  node16 [label="3.0"];
+  node14 -> node16;
+  node10 -> node14;
+  node9 -> node10;
+  node17 [label="block"];
+  node18 [label="print-stmt"];
+  node19 [label="x"];
+  node18 -> node19;
+  node17 -> node18;
+  node9 -> node17;
+  node20 [label="block"];
+  node21 [label="print-stmt"];
+  node22 [label="Binary:+"];
+  node23 [label="x"];
+  node22 -> node23;
+  node24 [label="1.0"];
+  node22 -> node24;
+  node21 -> node22;
+  node20 -> node21;
+  node9 -> node20;
+  node8 -> node9;
+  node25 [label="expr-stmt"];
+  node26 [label="Assign"];
+  node27 [label="Binary:+"];
+  node28 [label="x"];
+  node27 -> node28;
+  node29 [label="1.0"];
+  node27 -> node29;
+  node26 -> node27;
+  node25 -> node26;
+  node8 -> node25;
+  node4 -> node8;
+  node0 -> node4;
+}
+
+// --- case45 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl fib"];
+  node2 [label="if-stmt"];
+  node3 [label="Binary:<="];
+  node4 [label="n"];
+  node3 -> node4;
+  node5 [label="1.0"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="return"];
+  node7 [label="n"];
+  node6 -> node7;
+  node2 -> node6;
+  node1 -> node2;
+  node8 [label="return"];
+  node9 [label="Binary:+"];
+  node10 [label="Call"];
+  node11 [label="fib"];
+  node10 -> node11;
+  node12 [label="Binary:-"];
+  node13 [label="n"];
+  node12 -> node13;
+  node14 [label="1.0"];
+  node12 -> node14;
+  node10 -> node12;
+  node9 -> node10;
+  node15 [label="Call"];
+  node16 [label="fib"];
+  node15 -> node16;
+  node17 [label="Binary:-"];
+  node18 [label="n"];
+  node17 -> node18;
+  node19 [label="2.0"];
+  node17 -> node19;
+  node15 -> node17;
+  node9 -> node15;
+  node8 -> node9;
+  node1 -> node8;
+  node0 -> node1;
+  node20 [label="block"];
+  node21 [label="Var(i)"];
+  node22 [label="i"];
+  node21 -> node22;
+  node23 [label="0.0"];
+  node21 -> node23;
+  node20 -> node21;
+  node24 [label="while-stmt"];
+  node25 [label="Binary:<"];
+  node26 [label="i"];
+  node25 -> node26;
+  node27 [label="5.0"];
+  node25 -> node27;
+  node24 -> node25;
+  node28 [label="block"];
+  node29 [label="block"];
+  node30 [label="print-stmt"];
+  node31 [label="Call"];
+  node32 [label="fib"];
+  node31 -> node32;
+  node33 [label="i"];
+  node31 -> node33;
+  node30 -> node31;
+  node29 -> node30;
+  node28 -> node29;
+  node34 [label="expr-stmt"];
+  node35 [label="Assign"];
+  node36 [label="Binary:+"];
+  node37 [label="i"];
+  node36 -> node37;
+  node38 [label="1.0"];
+  node36 -> node38;
+  node35 -> node36;
+  node34 -> node35;
+  node28 -> node34;
+  node24 -> node28;
+  node20 -> node24;
+  node0 -> node20;
+}
+
+// --- case46 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="print-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case47 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="42.0"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case48 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl f"];
+  node2 [label="print-stmt"];
+  node3 [label="x"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case49 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="if-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="1.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node5 [label="print-stmt"];
+  node6 [label="2.0"];
+  node5 -> node6;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case50 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="while-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node3 [label="print-stmt"];
+  node4 [label="0.0"];
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case51 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="block"];
+  node2 [label="Var(i)"];
+  node3 [label="i"];
+  node2 -> node3;
+  node4 [label="0.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node5 [label="while-stmt"];
+  node6 [label="Binary:<"];
+  node7 [label="i"];
+  node6 -> node7;
+  node8 [label="10.0"];
+  node6 -> node8;
+  node5 -> node6;
+  node9 [label="block"];
+  node10 [label="print-stmt"];
+  node11 [label="i"];
+  node10 -> node11;
+  node9 -> node10;
+  node12 [label="expr-stmt"];
+  node13 [label="Assign"];
+  node14 [label="Binary:+"];
+  node15 [label="i"];
+  node14 -> node15;
+  node16 [label="1.0"];
+  node14 -> node16;
+  node13 -> node14;
+  node12 -> node13;
+  node9 -> node12;
+  node5 -> node9;
+  node1 -> node5;
+  node0 -> node1;
+}
+
+// --- case52 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Assign"];
+  node3 [label="Binary:+"];
+  node4 [label="b"];
+  node3 -> node4;
+  node5 [label="c"];
+  node3 -> node5;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case53 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Get(.field)"];
+  node3 [label="Call"];
+  node4 [label="Get(.method)"];
+  node5 [label="obj"];
+  node4 -> node5;
+  node3 -> node4;
+  node6 [label="1.0"];
+  node3 -> node6;
+  node7 [label="2.0"];
+  node3 -> node7;
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case54 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="A"];
+  node1 -> node2;
+  node3 [label="funDecl m"];
+  node1 -> node3;
+  node0 -> node1;
+}
+
+// --- case55 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="B"];
+  node1 -> node2;
+  node3 [label="A"];
+  node1 -> node3;
+  node4 [label="funDecl f"];
+  node1 -> node4;
+  node0 -> node1;
+}
+
+// --- case56 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl g"];
+  node2 [label="return"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case57 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:+"];
+  node3 [label="1.0"];
+  node2 -> node3;
+  node4 [label="2.0"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case58 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:*"];
+  node3 [label="3.0"];
+  node2 -> node3;
+  node4 [label="()"];
+  node5 [label="Binary:+"];
+  node6 [label="4.0"];
+  node5 -> node6;
+  node7 [label="5.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case59 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:=="];
+  node3 [label="a"];
+  node2 -> node3;
+  node4 [label="b"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case60 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:<"];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case61 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Binary:!="];
+  node3 [label="x"];
+  node2 -> node3;
+  node4 [label="y"];
+  node2 -> node4;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case62 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="Logical:or"];
+  node3 [label="Logical:and"];
+  node4 [label="a"];
+  node3 -> node4;
+  node5 [label="b"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="c"];
+  node2 -> node6;
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case63 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="true"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case64 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="false"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case65 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="nil"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case66 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="expr-stmt"];
+  node2 [label="x"];
+  node1 -> node2;
+  node0 -> node1;
+}
+
+// --- case67 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="ClassDecl"];
+  node2 [label="Animal"];
+  node1 -> node2;
+  node3 [label="funDecl speak"];
+  node4 [label="print-stmt"];
+  node5 [label="noise"];
+  node4 -> node5;
+  node3 -> node4;
+  node1 -> node3;
+  node0 -> node1;
+  node6 [label="ClassDecl"];
+  node7 [label="Dog"];
+  node6 -> node7;
+  node8 [label="Animal"];
+  node6 -> node8;
+  node9 [label="funDecl speak"];
+  node10 [label="expr-stmt"];
+  node11 [label="Call"];
+  node12 [label="super.speak"];
+  node11 -> node12;
+  node10 -> node11;
+  node9 -> node10;
+  node13 [label="print-stmt"];
+  node14 [label="woof"];
+  node13 -> node14;
+  node9 -> node13;
+  node6 -> node9;
+  node0 -> node6;
+}
+
+// --- case68 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="Var(x)"];
+  node2 [label="x"];
+  node1 -> node2;
+  node3 [label="0.0"];
+  node1 -> node3;
+  node0 -> node1;
+  node4 [label="while-stmt"];
+  node5 [label="Binary:<"];
+  node6 [label="x"];
+  node5 -> node6;
+  node7 [label="10.0"];
+  node5 -> node7;
+  node4 -> node5;
+  node8 [label="block"];
+  node9 [label="if-stmt"];
+  node10 [label="Logical:and"];
+  node11 [label="Binary:<"];
+  node12 [label="x"];
+  node11 -> node12;
+  node13 [label="5.0"];
+  node11 -> node13;
+  node10 -> node11;
+  node14 [label="Binary:!="];
+  node15 [label="x"];
+  node14 -> node15;
+  node16 [label="3.0"];
+  node14 -> node16;
+  node10 -> node14;
+  node9 -> node10;
+  node17 [label="block"];
+  node18 [label="print-stmt"];
+  node19 [label="x"];
+  node18 -> node19;
+  node17 -> node18;
+  node9 -> node17;
+  node20 [label="block"];
+  node21 [label="print-stmt"];
+  node22 [label="Binary:+"];
+  node23 [label="x"];
+  node22 -> node23;
+  node24 [label="1.0"];
+  node22 -> node24;
+  node21 -> node22;
+  node20 -> node21;
+  node9 -> node20;
+  node8 -> node9;
+  node25 [label="expr-stmt"];
+  node26 [label="Assign"];
+  node27 [label="Binary:+"];
+  node28 [label="x"];
+  node27 -> node28;
+  node29 [label="1.0"];
+  node27 -> node29;
+  node26 -> node27;
+  node25 -> node26;
+  node8 -> node25;
+  node4 -> node8;
+  node0 -> node4;
+}
+
+// --- case69 ---
+digraph AST {
+  node0 [label="Program"];
+  node1 [label="funDecl fib"];
+  node2 [label="if-stmt"];
+  node3 [label="Binary:<="];
+  node4 [label="n"];
+  node3 -> node4;
+  node5 [label="1.0"];
+  node3 -> node5;
+  node2 -> node3;
+  node6 [label="return"];
+  node7 [label="n"];
+  node6 -> node7;
+  node2 -> node6;
+  node1 -> node2;
+  node8 [label="return"];
+  node9 [label="Binary:+"];
+  node10 [label="Call"];
+  node11 [label="fib"];
+  node10 -> node11;
+  node12 [label="Binary:-"];
+  node13 [label="n"];
+  node12 -> node13;
+  node14 [label="1.0"];
+  node12 -> node14;
+  node10 -> node12;
+  node9 -> node10;
+  node15 [label="Call"];
+  node16 [label="fib"];
+  node15 -> node16;
+  node17 [label="Binary:-"];
+  node18 [label="n"];
+  node17 -> node18;
+  node19 [label="2.0"];
+  node17 -> node19;
+  node15 -> node17;
+  node9 -> node15;
+  node8 -> node9;
+  node1 -> node8;
+  node0 -> node1;
+  node20 [label="block"];
+  node21 [label="Var(i)"];
+  node22 [label="i"];
+  node21 -> node22;
+  node23 [label="0.0"];
+  node21 -> node23;
+  node20 -> node21;
+  node24 [label="while-stmt"];
+  node25 [label="Binary:<"];
+  node26 [label="i"];
+  node25 -> node26;
+  node27 [label="5.0"];
+  node25 -> node27;
+  node24 -> node25;
+  node28 [label="block"];
+  node29 [label="block"];
+  node30 [label="print-stmt"];
+  node31 [label="Call"];
+  node32 [label="fib"];
+  node31 -> node32;
+  node33 [label="i"];
+  node31 -> node33;
+  node30 -> node31;
+  node29 -> node30;
+  node28 -> node29;
+  node34 [label="expr-stmt"];
+  node35 [label="Assign"];
+  node36 [label="Binary:+"];
+  node37 [label="i"];
+  node36 -> node37;
+  node38 [label="1.0"];
+  node36 -> node38;
+  node35 -> node36;
+  node34 -> node35;
+  node28 -> node34;
+  node24 -> node28;
+  node20 -> node24;
+  node0 -> node20;
+}

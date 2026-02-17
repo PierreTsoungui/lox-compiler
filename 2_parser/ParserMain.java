@@ -621,7 +621,7 @@ public class ParserMain {
         ));
     }
         @SuppressWarnings("unchecked")
-      Parser<Stmt> forStmt() {
+    Parser<Stmt> forStmt() {
             return new And(
                 item(TokenType.FOR),
                 item(TokenType.LEFT_PAREN),
