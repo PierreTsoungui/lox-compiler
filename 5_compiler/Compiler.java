@@ -411,10 +411,10 @@ public class Compiler {
               
                 switch (un.operator().type()) {
                     case MINUS -> {
-                        // -x wird zu 0 - x
-                        asm.const_(new Val.Num(0));
                         exprToAsm(un.right());
-                        asm.sub();
+                        asm.neg();
+                       
+                       
                     }
                     case BANG -> asm.not();
                     default -> 
