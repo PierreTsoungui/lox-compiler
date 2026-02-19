@@ -1,6 +1,6 @@
 import java.util.*;
 import java.util.function.*;
-
+// --- SmartAssembler: Hilfsklasse zum Bytecode-Generieren ---
  class SmartAssembler {
 
     private final Deque<CompilerState> compilers = new ArrayDeque<>();
