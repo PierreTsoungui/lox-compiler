@@ -1,7 +1,181 @@
 import java.util.*;
+import java.util.function.Function;
+// Instruction Set
+sealed interface Op {
+    // Stack & Konstanten
+    record Const(Val value) implements Op {}
+    record Nil() implements Op {}
+    record True() implements Op {}
+    record False() implements Op {}
+    record Pop() implements Op {}
+    record Print() implements Op {}
 
-// Uses shared Op/Val/CompiledFunction/UpvalueDescriptor/Upvalue types from Compiler.java
-// === Die Virtual Machine ===
+    // Arithmetik
+    record Add() implements Op {}
+    record Sub() implements Op {}
+    record Mul() implements Op {}
+    record Div() implements Op {}
+    record Neg() implements Op {}
+    record Not() implements Op {}
+
+    // Vergleiche
+    record Equal() implements Op {}
+    record Greater() implements Op {}
+    record Less() implements Op {}
+    
+    // Lokale Variablen
+    record GetLocal(int slot) implements Op {}
+    record SetLocal(int slot) implements Op {}
+    
+    // Globale
+    record DefGlobal(String name) implements Op {}
+    record SetGlobal(String name) implements Op {}
+    record GetGlobal(String name) implements Op {}
+    
+    // Upvalues
+    record GetUpval(int index) implements Op {}
+    record SetUpval(int index) implements Op {}
+    record CloseUpval() implements Op {}
+    
+    // Properties
+    record GetProp(String name) implements Op {}
+    record SetProp(String name) implements Op {}
+    record GetSuper(String name) implements Op {}
+    
+    // Flow
+    record Jump(int offset) implements Op {
+        public Jump { assert offset >= 0; }
+    }
+    record JumpIfFalse(int offset) implements Op {
+        public JumpIfFalse { assert offset >= 0; }
+    }
+    record Loop(int offset) implements Op {
+        public Loop { assert offset >= 0; }
+    }
+    
+    // Aufrufe
+    record Call(int args) implements Op {}
+    record Invoke(String name, int args) implements Op {}
+    record SuperInvoke(String name, int args) implements Op {}
+    record Return() implements Op {}
+    
+    // Closures
+    record Closure(CompiledFunction fn, List<UpvalueDescriptor> upvalues) implements Op {}
+    
+    // OOP
+    record Class(String name) implements Op {}
+    record Inherit() implements Op {}
+    record Method(String name) implements Op {}
+}
+
+// Function representation
+record CompiledFunction(String name, int arity, List<Op> code) {}
+
+// Upvalue descriptor
+record UpvalueDescriptor(boolean isLocal, int index) {}
+
+// Value hierarchy
+sealed interface Val {
+    default boolean isTruthy() { return true; }
+    
+    record Nil() implements Val {
+        @Override public String toString() { return "nil"; }
+        @Override public boolean isTruthy() { return false; }
+    }
+    record Bool(boolean value) implements Val {
+        @Override public String toString() { return String.valueOf(value); }
+        @Override public boolean isTruthy() { return value; }
+    }
+    record Num(double value) implements Val {
+        @Override public String toString() { 
+            if (value == (long)value) return String.format("%d", (long)value);
+            return String.valueOf(value); 
+        }
+    }
+    record Str(String value) implements Val {
+        @Override public String toString() { return value; }
+    }
+    
+    sealed interface Obj extends Val {
+        final class Closure implements Obj {
+            public final CompiledFunction fn;
+            public final Upvalue[] upvalues;
+            public Closure(CompiledFunction fn, Upvalue[] upvalues) {
+                this.fn = fn;
+                this.upvalues = upvalues;
+            }
+            @Override public String toString() { return "<fn " + fn.name() + ">"; }
+        }
+        final class Native implements Obj {
+            public final String name;
+            public final int arity;
+            public final Function<List<Val>, Val> logic;
+            public Native(String name, int arity, Function<List<Val>, Val> logic) {
+                this.name = name;
+                this.arity = arity;
+                this.logic = logic;
+            }
+            @Override public String toString() { return "<native fn " + name + ">"; }
+        }
+        final class Klass implements Obj {
+            public final String name;
+            public final Map<String, Closure> methods;
+            public Klass(String name) {
+                this.name = name;
+                this.methods = new HashMap<>();
+            }
+            @Override public String toString() { return "<class " + name + ">"; }
+        }
+        final class Instance implements Obj {
+            public final Klass klass;
+            public final Map<String, Val> fields;
+            public Instance(Klass klass) {
+                this.klass = klass;
+                this.fields = new HashMap<>();
+            }
+            Val get(String name) {
+                if (fields.containsKey(name)) return fields.get(name);
+                Closure method = klass.methods.get(name);
+                if (method != null) return new BoundMethod(this, method);
+                throw new RuntimeException("Undefined property '" + name + "'.");
+            }
+            void set(String name, Val value) {
+                fields.put(name, value);
+            }
+            @Override public String toString() { return "<inst " + klass.name + ">"; }
+        }
+        final class BoundMethod implements Obj {
+            public final Instance receiver;
+            public final Closure method;
+            public BoundMethod(Instance receiver, Closure method) {
+                this.receiver = receiver;
+                this.method = method;
+            }
+            @Override public String toString() { return "<fn " + method.fn.name() + ">"; }
+        }
+    }
+}
+
+// Upvalue for closures
+class Upvalue {
+    int location; Val closed; boolean isOpen = true;
+
+    public Upvalue(int location) { this.location = location; }
+
+    Val get(List<Val> stack) {
+        return isOpen ? stack.get(location) : closed;
+    }
+
+    void set(List<Val> stack, Val value) {
+        if (isOpen) stack.set(location, value);
+        else closed = value;
+    }
+
+    void close(List<Val> stack) {
+        closed = stack.get(location);
+        isOpen = false;
+    }
+}
 public class VM {
     private final List<Val> stack = new ArrayList<>(); // ArrayList erlaubt Random Access für Slots!
     private final List<CallFrame> frames = new ArrayList<>();
