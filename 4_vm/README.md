@@ -360,11 +360,41 @@ ByteCode wird durch SmartAssembler erzeugt und als CompiledFunction an die VM ü
 
 ## Nachträgliche Änderungen am Code
 
+#### 1. Zusammenführung von SmartAssembler und VM
+
 Ursprünglich waren die SmartAssembler- und VM-Klassen in getrennten Dateien (`SmartAssembler.java` und `VM.java`).  
 Bei der Nachbearbeitung wurden diese Dateien in `LoxVM.java` zusammengeführt.  
-**Grund:** In der IDE traten rote Warnungen auf (z. B. bei Typen wie `CompiledFunction` oder `Op`), die die Ausführung in JShell jedoch **nicht** behinderten.  
+**Grund:**
+ In der IDE traten rote Warnungen auf (z. B. bei Typen wie `CompiledFunction` oder `Op`), die die Ausführung in JShell jedoch **nicht** behinderten.  
 Die Zusammenführung verbessert die Lesbarkeit und verhindert unnötige Warnungen, ohne die Funktionalität zu verändern.  
 Alle Tests und Funktionen laufen weiterhin korrekt.
+
+### 2. Anpassung der Nil-Implementierung
+
+Die ursprüngliche Implementierung von `Nil ` als `record ` wurde durch eine final class mit privatem Konstruktor ersetzt.
+
+**Grund:**
+Ein`record`  besitzt automatisch einen öffentlichen Konstruktor und erlaubt mehrere Instanzen.
+Da `nil` in Lox jedoch ein eindeutiger Singleton-Wert ist (analog zu null), wurde die Implementierung so angepasst, dass nur eine einzige Instanz `(Nil.INSTANCE)` existiert.
+
+Diese Änderung stellt die korrekte Semantik von `nil` sicher.
+
+### 3. Entfernung eines return in Op.Equal
+
+Im `Op.Equal`-Case der VM wurde ein vorzeitiges `return `entfernt.
+
+**Ursprüngliches Verhalten:**
+
+Nach dem Vergleich zweier Werte wurde durch return die Ausführung des aktuellen VM-Schritts vorzeitig beendet.
+
+**Problem:**
+
+Das vorzeitige Verlassen der Case-Verarbeitung führte zu inkonsistentem VM-Fluss, da der Operator nur das Vergleichsergebnis auf den Stack legen soll, jedoch nicht die gesamte Ausführung der aktuellen Dispatch-Iteration abbrechen darf.
+
+**Neues Verhalten:**
+Der Vergleich legt nun lediglich das Ergebnis (`Val.Bool`) auf den Stack, ohne den Kontrollfluss der VM zu verlassen.
+
+Dies entspricht der Semantik aller anderen Vergleichsoperatoren und sorgt für konsistentes Verhalten im Dispatch-Mechanismus.
 
 ## Navigation
 - Zurück zum Einstieg: [Compiler.md](/Compiler.md)
