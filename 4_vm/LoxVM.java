@@ -428,7 +428,7 @@ class VM {
                             Val value = instance.fields.get(name);
                             stack.set(receiverIdx, value);
                             callValue(value, args);
-                            return;
+                            //return;
                         }
                         // B. METHODEN-LOOKUP
                         else if (instance.klass.methods.containsKey(name)) {
@@ -438,7 +438,7 @@ class VM {
                                                         " arguments but got " + args + ".");
                             }
                             callClosure(method, args);
-                            return;
+                            //return;
                         } 
                         // C. FEHLER
                         else {

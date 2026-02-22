@@ -399,3 +399,4 @@ Dies entspricht der Semantik aller anderen Vergleichsoperatoren und sorgt für k
 ## Navigation
 - Zurück zum Einstieg: [Compiler.md](/Compiler.md)
 - Weiter zu Aufgabe 5: [5_compiler/README.md](/5_compiler/README.md)
+
