@@ -575,3 +575,8 @@ Mögliche weitere Verbesserungen:
 Die Überarbeitung des JsTranspilers war keine oberflächliche Kosmetik, sondern eine fundamentale Neukonzeption der Laufzeitsemantik. Weg von "Übersetzung nach JS" hin zu "Lox auf JS emulieren".
 
 Die wichtigste Erkenntnis: Sprachen unterscheiden sich nicht nur in der Syntax, sondern in grundlegenden semantischen Konzepten und ein guter Transpiler muss diese Unterschiede kennen und ausgleichen.
+
+
+## Navigation
+- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Weiter zu Aufgabe 3: [4_vm/README.md](/4_vm/README.md)
