@@ -77,10 +77,21 @@ record UpvalueDescriptor(boolean isLocal, int index) {}
 // Value hierarchy
 sealed interface Val {
     default boolean isTruthy() { return true; }
-    
-    record Nil() implements Val {
-        @Override public String toString() { return "nil"; }
-        @Override public boolean isTruthy() { return false; }
+    final class Nil implements Val {
+
+        public static final Nil INSTANCE = new Nil();
+
+         private Nil() {}
+
+        @Override
+        public String toString() {
+            return "nil";
+        }
+
+         @Override
+        public boolean isTruthy() {
+            return false;
+        }
     }
     record Bool(boolean value) implements Val {
         @Override public String toString() { return String.valueOf(value); }
@@ -225,7 +236,7 @@ public class VM {
 
             switch (op) {
                 case Op.Const(Val v) -> stack.add(v);
-                case Op.Nil() -> stack.add(new Val.Nil());
+                case Op.Nil() -> stack.add(Val.Nil.INSTANCE);
                 case Op.True() -> stack.add(new Val.Bool(true));
                 case Op.False() -> stack.add(new Val.Bool(false));
                 case Op.Pop() -> stack.removeLast();
@@ -273,12 +284,22 @@ public class VM {
                 case Op.Equal() -> {
                     Val snd = stack.removeLast();
                     Val fst = stack.removeLast();
+                    // Spezialbehandlung für Zahlen: Wir wollen IEEE 754 Semantik, 
+                    // nicht Java-Objekt-Semantik (Double.equals):
+                    // new Num(Double.NaN).equals(new Num(Double.NaN)) ==> true
                     if (fst instanceof Val.Num n1 && snd instanceof Val.Num n2) {
+                        // In Java ist (NaN == NaN) false. Das ist genau das, was wir wollen.
+                        // Auch (-0.0 == 0.0) ist true. Auch das wollen wir.
                         stack.add(new Val.Bool(n1.value() == n2.value()));
-                        return;
+                        //return wurde entfernt, da wir den Vergleichsoperator nicht verlassen wollen, sondern nur das Ergebnis auf den Stack legen wollen.
+                    } else {
+                        // Für alle anderen Typen (Strings, Objekte, Bools, Nil) 
+                        // ist die Java-Standard-Gleichheit (equals) korrekt.
+                        stack.add(new Val.Bool(fst.equals(snd)));
                     }
-                    stack.add(new Val.Bool(fst.equals(snd)));
+                   
                 }
+
                 case Op.Greater() -> {
                     if (stack.removeLast() instanceof Val.Num y &&
                         stack.removeLast() instanceof Val.Num x)
@@ -319,10 +340,7 @@ public class VM {
 
                 // --- Flow ---
                 case Op.Jump(int off) -> frame.ip += off;
-                case Op.JumpIfFalse(int off) -> { 
-                    Val condition = stack.removeLast(); // WICHTIG: Condition vom Stack nehmen
-                    if (!condition.isTruthy()) frame.ip += off; 
-                }
+                case Op.JumpIfFalse(int off) -> { if (!stack.getLast().isTruthy()) frame.ip += off; } 
                 case Op.Loop(int off) -> frame.ip -= off;
                 
                 // --- Funktionen --- Hier entsteht das Closure-Objekt zur LAUFZEIT
@@ -404,7 +422,7 @@ public class VM {
                             Val value = instance.fields.get(name);
                             stack.set(receiverIdx, value);
                             callValue(value, args);
-                            return;
+                            //return;
                         }
                         // B. METHODEN-LOOKUP
                         else if (instance.klass.methods.containsKey(name)) {
@@ -414,7 +432,7 @@ public class VM {
                                                         " arguments but got " + args + ".");
                             }
                             callClosure(method, args);
-                            return;
+                           // return;
                         } 
                         // C. FEHLER
                         else {

@@ -68,7 +68,7 @@ import java.util.function.*;
         int jumpIfTrue = emitJumpIfFalse();
     
         int jumpOverRight = emitJump();    
-
+            
         patchJump(jumpIfTrue);             
 
         right.accept(this);                
@@ -727,12 +727,23 @@ public class Compiler {
                 asm.setProp(set.name().lexem());
             }
             
-           
-            
             default -> 
                 throw new RuntimeException("Unhandled expression type: " + expr.getClass().getSimpleName());
         }
     }
 
+    //add TestMethoden helper
+    public static  void  compileTest(String source){
+        Compiler compiler = new Compiler();
+        CompiledFunction fn = compiler.compile(source);
+        if (fn.code() == null || fn.code().isEmpty()) {
+            throw new RuntimeException("No bytecode generated.");
+        }
+        System.out.println("Bytecode:");
+        for (Op op : fn.code()) {
+            System.out.println(op);
+        }
+        
+    }
 }
 

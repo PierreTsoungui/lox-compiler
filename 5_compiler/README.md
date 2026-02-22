@@ -372,13 +372,18 @@ Method[name=describe]
 ## 6. Ausführen der Compiler-Tests 
 Die Klasse CompilerTest enthält die Methode`runAll()`, die Compiler-Regeln überprüft
 
-## 7. Technischer Hinweis zur Dateistruktur
+## 7 Nachträgliche Änderungen am Code
+## 7.1 Technischer Hinweis zur Dateistruktur
 
 Zum Zeitpunkt der ursprünglichen Abgabe war ` SmartAssembler `als eigenständige Klasse in einer separaten Quelldatei im Compiler-Ordner implementiert; der Code kompilierte und lief fehlerfrei.
 
 Im weiteren Verlauf der Dokumentation traten im Editor vereinzelte Typauflösungsmarkierungen im Default-Package auf, obwohl die Funktionalität weiterhin uneingeschränkt gegeben war.
 Um eine konsistente statische Analyse im Editor und eine verbesserte Lesbarkeit sicherzustellen, wurde `SmartAssembler `anschließend direkt in `Compiler.java` integriert.
 Diese Anpassung betrifft ausschließlich die Dateiorganisation.
+ ### 7.2 Ergänzung einer Hilfsmethode für`CompilerTest`
+
+Zur vereinfachten Überprüfung der Compiler-Funktionalität wurde im Rahmen der Nachbearbeitung eine zusätzliche Hilfsmethode in `CompilerTest` ergänzt.
+Diese dient ausschließlich der strukturierten Testausführung und hat keinen Einfluss auf die Implementierungslogik des Compilers.
 
 ## Navigation
 - Zurück zum Einstieg: [Compiler.md](/Compiler.md)
