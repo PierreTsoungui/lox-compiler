@@ -16,7 +16,7 @@ Der Parser nimmt eine **Liste von Tokens** (Ausgabe des Scanners) entgegen und e
 ### 1.2 Stellung in der Pipeline
 
 ```
-Quelltext  →  Scanner  →  Tokens  →  Parser  →  AST  →  (später: Transpiler/VM/Compiler)
+Quelltext  -> Scanner  -> Tokens  ->  Parser  ->  AST  ->  (später: Transpiler/VM/Compiler)
 ```
 
 Der Parser baut auf dem **Scanner** (`Scanner.java`) auf: `Token` und `TokenType` kommen aus dem Scanner; der Parser nutzt sie nur noch.
@@ -97,7 +97,7 @@ Hilfsknoten für die Parser-Interna (nicht für die Lox-Semantik):
 
 - **`TokenNode(Token)`** – wrappert ein Token als `AstNode` (z. B. für `Item`-Ergebnisse).
 - **`ListAstNode(List<AstNode>)`** – Liste von Knoten, z. B. Ergebnis von `And`/`Many`.
-- **`Pair<A,B>`** – für Operator+Operand-Paare bei linksassoziativen Ketten.
+- **`Pair<A,B>`** – für Operator + Operand-Paare bei linksassoziativen Ketten.
 
 ---
 
@@ -118,7 +118,7 @@ Die Bilder in diesem Ordner zeigen **Abstrakte Syntaxbäume** zu kleinen Lox-Pro
 | Bild | Inhalt | Erklärung |
 |------|--------|-----------|
 | **print_dot.png** | `print 1 + 2;` | Programm → print-stmt → Binary:+ mit zwei Literal-Kindern (1.0, 2.0). Zeigt die Präzedenz: Der Plus-Operator ist Wurzel des Ausdrucks, die Zahlen sind Blätter. |
-| **var_dot.png** | `var x = 42;` | Programm → Var(x) mit Kindern: Variablenname (x) und Initializer (Literal 42.0). Typisch für **varDecl**. |
+| **var_dot.png** | `var x = 42;` | Programm -> Var(x) mit Kindern: Variablenname (x) und Initializer (Literal 42.0). Typisch für **varDecl**. |
 | **if_else_dot.png** | `if (true) print 1; else print 2;` | if-stmt mit drei Kindern: Bedingung (true), then-Branch (print 1), else-Branch (print 2). Verzweigung im Baum sichtbar. |
 | **while_dot.png** | `while (cond) body` | while-stmt mit zwei Kindern: Condition und Body-Statement. Entspricht der Grammatik **whileStmt**. |
 | **fun_dot.png** | `fun f(x) { print x; }` | funDecl mit Namen und Block; im Block die Statements (hier ein print-stmt). Zeigt die Struktur von **Stmt.Function**. |
@@ -222,7 +222,7 @@ Hilfsmethoden: `Result.of(value, rest)`, `Result.fail(rest)`, `hasFailed()`, `ha
 
 ### 4.4 Warum Lazy?
 
-Ohne `Lazy` würden z. B. `program() → declaration() → statement() → … → block() → declaration()` sofort alle Parser-Objekte aufbauen und dabei zirkuläre Referenzen erzeugen. Mit `lazy(() -> new Or<>(…))` wird der innere Parser erst beim ersten Aufruf von `parse()` erzeugt – die Rekursion funktioniert dann zur Laufzeit.
+Ohne `Lazy` würden z. B. `program() -> declaration() -> statement() -> … -> block() -> declaration()` sofort alle Parser-Objekte aufbauen und dabei zirkuläre Referenzen erzeugen. Mit `lazy(() -> new Or<>(…))` wird der innere Parser erst beim ersten Aufruf von `parse()` erzeugt . Die Rekursion funktioniert dann zur Laufzeit.
 
 ---
 
@@ -232,10 +232,10 @@ Die Lox-Grammatik ist in `ParserMain` von **oben nach unten** abgebildet.
 
 ### 5.1 Programm und Deklarationen
 
-- **program** → `declaration* EOF`  
+- **program** -> `declaration* EOF`  
   - Erkannt durch: `many(declaration())` und dann `item(EOF)`. Das Ergebnis von `many` wird per `mapProgram` in ein `Stmt.Program` überführt.
 
-- **declaration** → **classDecl** | **funDecl** | **varDecl** | **statement**  
+- **declaration** -> **classDecl** | **funDecl** | **varDecl** | **statement**  
   - Entspricht einem `Or` aus diesen vier Parsern. Damit sind Klassen, Funktionen, Variablen und „normale“ Statements (inkl. Blöcke) Top-Level möglich.
 
 ### 5.2 Klassen und Funktionen
@@ -244,41 +244,41 @@ Die Lox-Grammatik ist in `ParserMain` von **oben nach unten** abgebildet.
   - Optional: Superklasse via `superClassOpt` (`maybe(listItem(LESS, IDENTIFIER))`).  
   - Die Methoden sind `Stmt.Function` (ohne `fun`-Keyword im Rumpf).
 
-- **funDecl** → `fun` function  
-- **function** (Methoden- oder Funktionsrümpfe) → IDENTIFIER `(` parameters? `)` block  
+- **funDecl** -> `fun` function  
+- **function** (Methoden- oder Funktionsrümpfe) -> IDENTIFIER `(` parameters? `)` block  
 - **parameters** → IDENTIFIER (`,` IDENTIFIER)*  
 - **block** → `{` declaration* `}`  
 
 ### 5.3 Statements
 
-- **varDecl** → `var` IDENTIFIER `=` expression? `;`
-- **exprStmt** → expression `;`
-- **printStmt** → `print` expression `;`
-- **returnStmt** → `return` expression? `;`
-- **ifStmt** → `if` `(` expression `)` statement `else` statement?
-- **whileStmt** → `while` `(` expression `)` statement
-- **forStmt** → wird **desugared**: in Initializer, Bedingung, Inkrement und Body übersetzt und als Kombination aus `Stmt.While`/`Stmt.Block`/`Stmt.Expression` abgebildet (`mapForStmt`).
-- **statement** → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block
+- **varDecl** -> `var` IDENTIFIER `=` expression? `;`
+- **exprStmt** -> expression `;`
+- **printStmt** -> `print` expression `;`
+- **returnStmt** -> `return` expression? `;`
+- **ifStmt** -> `if` `(` expression `)` statement `else` statement?
+- **whileStmt** -> `while` `(` expression `)` statement
+- **forStmt** -> wird **desugared**: in Initializer, Bedingung, Inkrement und Body übersetzt und als Kombination aus `Stmt.While`/`Stmt.Block`/`Stmt.Expression` abgebildet (`mapForStmt`).
+- **statement** -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block
 
 ### 5.4 Ausdrücke: Präzedenz (von niedrig nach hoch)
 
 Die Ausdrucks-Grammatik ist so geschrieben, dass **höhere Präzedenz** durch **tiefere** (später aufgerufene) Parser realisiert wird:
 
-1. **assignment** → logicOr, optional gefolgt von `=` und erneut assignment (rechtsassoziativ).  
+1. **assignment** -> logicOr, optional gefolgt von `=` und erneut assignment (rechtsassoziativ).  
    - Zuweisung erzeugt `Expr.Assign` (Variable) oder `Expr.Set` (Property); sonst bleibt der linke Ausdruck unverändert.
 
 2. **logicOr** → logicAnd (`or` logicAnd)*  
 3. **logicAnd** → equality (`and` equality)*  
 4. **equality** → comparison (`==` | `!=` comparison)*  
 5. **comparison** → term (`<` | `<=` | `>` | `>=` term)*  
-6. **term** → factor (`+` | `-` factor)*  
-7. **factor** → unary (`*` | `/` unary)*  
-8. **unary** → `!` unary | `-` unary | **call**  
-9. **call** → primary (Aufruf-Suffix oder Property-Suffix)*  
-   - **callSuffix:** `(` arguments? `)` → `Expr.Call`, oder `.` IDENTIFIER → `Expr.Get`.  
+6. **term** -> factor (`+` | `-` factor)*  
+7. **factor** -> unary (`*` | `/` unary)*  
+8. **unary** -> `!` unary | `-` unary | **call**  
+9. **call** -> primary (Aufruf-Suffix oder Property-Suffix)*  
+   - **callSuffix:** `(` arguments? `)` -> `Expr.Call`, oder `.` IDENTIFIER -> `Expr.Get`.  
    - Mehrere Suffixe werden linksassoziativ angewendet: `primary().flatMap(callee -> many(callSuffix()).map(…))` mit `applySuffix(expr, suffix)`.
 
-10. **primary** → Literale (Zahl, String, true/false/nil), `this`, IDENTIFIER, `super`.`IDENTIFIER`, oder `(` expression `)`.
+10. **primary** -> Literale (Zahl, String, true/false/nil), `this`, IDENTIFIER, `super`.`IDENTIFIER`, oder `(` expression `)`.
 
 **Linksassoziativität** für binäre Operatoren (und für Call-Ketten) wird durch die Hilfsmethode **`binaryLeftAssoc(operand, operator, nextOperand, isBinary)`** umgesetzt:
 
@@ -293,7 +293,7 @@ Die Ausdrucks-Grammatik ist so geschrieben, dass **höhere Präzedenz** durch **
 
 Die `And`-Kombinator liefert eine **Liste** von Knoten. Die konkrete AST-Erzeugung erfolgt in **Mapper-Methoden**, die per `.map(this::mapX)` an den Parser gehängt werden, z. B.:
 
-- `mapProgram(ListAstNode)` → erzeugt `Stmt.Program` aus der Liste der Deklarationen.
+- `mapProgram(ListAstNode)` -> erzeugt `Stmt.Program` aus der Liste der Deklarationen.
 - `mapClassDecl`, `mapFunction`, `mapBlock`, `mapVarDecl`, `mapForStmt`, `mapAssignment` usw.
 
 Darin wird per Index auf die Liste zugegriffen (z. B. `expr(list, 0)`, `stmt(list, 4)`) und der passende Record gebaut.
@@ -333,7 +333,7 @@ Die **for**-Schleife wird nicht als eigener AST-Knoten gespeichert, sondern in *
   Liefert `Result<Stmt.Program>`. Bei Erfolg enthält `recognized()` das komplette Programm als AST-Wurzel.
 
 - **`parseProgram(String source)`** (statisch)  
-  Bequememethode: Quelle → Scanner → Parser → bei Erfolg `List<Stmt>` (die Deklarationen), bei Fehler leere Liste und Fehlerausgabe auf stderr.
+  Bequememethode: Quelle -> Scanner -> Parser -> bei Erfolg `List<Stmt>` (die Deklarationen), bei Fehler leere Liste und Fehlerausgabe auf stderr.
 
 ### 7.3 Visualisierung (DOT)
 

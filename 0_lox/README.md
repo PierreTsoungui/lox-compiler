@@ -31,7 +31,7 @@ Zusätzlich wurden moderne Java‑APIs und Sprachfeatures genutzt (z. B. `Map.
 Datei: [0_lox/Lox.java](Lox.java)
 
 Aufgabe: CLI‑Einstieg, Dateiausführung/REPL und Orchestrierung der Pipeline
-Scanner → Parser → Resolver → Interpreter.
+Scanner -> Parser -> Resolver -> Interpreter.
 
 **Modernisierung:**
 -  Keine strukturellen Änderungen notwendig. 

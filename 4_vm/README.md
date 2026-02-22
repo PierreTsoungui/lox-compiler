@@ -1,8 +1,12 @@
 # 4_vm – SmartAssembler und Virtual Machine
   
-In diesem Schritt wurde die ursprünglich in C implementierte Lox Virtual Machine durch eine Java-Implementierung ersetzt. Die neue Implementierung befindet sich in `VM.java`.
+In diesem Schritt wurde die ursprünglich in C implementierte Lox Virtual Machine durch eine 
+Java-Implementierung ersetzt. Die neue Implementierung befindet sich in `VM.java`.
+
 Die Java-Implementierung der Lox Virtual Machine (VM.java) wurde im Rahmen des Projekts bereitgestellt und bildet die Laufzeitumgebung für den vom Compiler erzeugten ByteCode
+
 Zusätzlich wurde ein`SmartAssembler` (SmartAssembler.java) entwickelt. Dieser stellt eine DSL (Domain Specific Language) zur Verfügung, mit der ByteCode in textueller Form beschrieben und anschließend in ausführbaren ByteCode übersetzt werden kann.
+
 Die Funktionsweise und das Zusammenspiel von Virtual Machine und SmartAssembler werden anhand praktischer Beispiele in `SmartAssemblerTest.java `demonstriert.
 
 ```mermaid
