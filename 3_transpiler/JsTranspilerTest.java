@@ -59,6 +59,7 @@ public class JsTranspilerTest {
 				print i;
 				i = i + 1;
 			}
+			
 			if (i == 3) print "done"; else print "fail";
 			""";
 		runCase("Control Flow", source);
