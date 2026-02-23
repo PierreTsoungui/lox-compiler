@@ -288,6 +288,10 @@ private void emitBlockScope(List<Stmt> statements) {
         if (isSuperConstructorCall(c)) { out.append("super("); emitCommaSeparated(c.arguments()); out.append(")"); return; }
         boolean isCtor = c.callee() instanceof Expr.Variable v && classes.contains(v.name().lexem());
         if (isCtor) { out.append("new ("); emitExpr(c.callee()); out.append(")("); emitCommaSeparated(c.arguments()); out.append(")"); return; }
+        if (c.callee() instanceof Expr.Super s) {
+          out.append("super.").append(s.method().lexem()).append("("); emitCommaSeparated(c.arguments()); out.append(")");
+            return;
+        }
         emitExpr(c.callee()); out.append("("); emitCommaSeparated(c.arguments()); out.append(")");
     }
 
@@ -299,7 +303,8 @@ private void emitBlockScope(List<Stmt> statements) {
     }
 
     private void emitGetExpr(Expr.Get g) {
-        if (g.object() instanceof Expr.This || g.object() instanceof Expr.Super) { emitExpr(g.object()); out.append(".").append(g.name().lexem()); }
+        if (g.object() instanceof Expr.This ) { emitExpr(g.object()); out.append(".").append(g.name().lexem()); }
+        else if (g.object() instanceof Expr.Super) { out.append("super.").append(g.name().lexem()).append(".bind(this)"); }
         else { out.append("bindMethod("); emitExpr(g.object()); out.append(", \"").append(g.name().lexem()).append("\")"); }
     }
 
@@ -339,7 +344,7 @@ private void emitBlockScope(List<Stmt> statements) {
           //out.append("function getVar(scope,name){while(scope){if(Object.prototype.hasOwnProperty.call(scope,name)){return scope[name];}scope=scope.__parent__;}throw new Error('Variable not found: '+name);}\n");
     }
 
-    private boolean isSuperConstructorCall(Expr.Call c) { return c.callee() instanceof Expr.Get g && g.object() instanceof Expr.Super && g.name().lexem().equals("init"); }
+    private boolean isSuperConstructorCall(Expr.Call c) { return c.callee() instanceof Expr.Super s && s.method().lexem().equals("init"); }
    
     private String escapeString(String v) { return v.replace("\\","\\\\").replace("\"","\\\"").replace("\n","\\n").replace("\r","\\r").replace("\t","\\t"); }
 
