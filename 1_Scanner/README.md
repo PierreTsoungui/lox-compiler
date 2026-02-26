@@ -145,5 +145,5 @@ als Separator‑Token behandelt, wenn er nicht Teil einer Zahl ist. Dadurch wird
 die Scanner‑Logik einfacher, ohne funktionale Auswirkungen.
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)
 - Weiter zu Aufgabe 2: [2_parser/README.md](/2_parser/README.md)

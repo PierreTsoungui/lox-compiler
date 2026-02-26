@@ -402,5 +402,5 @@ Aufgabe: Zyklusfreie Lade‑Reihenfolge für JShell.
 
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)
 - Weiter zu Aufgabe 1: [1_Scanner/README.md](/1_Scanner/README.md)

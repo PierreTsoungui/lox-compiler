@@ -401,6 +401,6 @@ Der Vergleich legt nun lediglich das Ergebnis (`Val.Bool`) auf den Stack, ohne d
 Dies entspricht der Semantik aller anderen Vergleichsoperatoren und sorgt für konsistentes Verhalten im Dispatch-Mechanismus.
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)
 - Weiter zu Aufgabe 5: [5_compiler/README.md](/5_compiler/README.md)
 

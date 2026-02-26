@@ -399,5 +399,5 @@ arguments      → expression ( "," expression )*
 ---
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)
 - Weiter zu Aufgabe 3: [3_transpiler/README.md](/3_transpiler/README.md)

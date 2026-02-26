@@ -386,4 +386,4 @@ Zur vereinfachten Überprüfung der Compiler-Funktionalität wurde im Rahmen der
 Diese dient ausschließlich der strukturierten Testausführung und hat keinen Einfluss auf die Implementierungslogik des Compilers.
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)

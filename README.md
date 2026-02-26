@@ -1,61 +1,39 @@
-# Lox-Compiler – Projektstand
+# Compilerbau – Projekt Lox
 
-## Projektziel
-Ziel ist die Entwicklung eines vollständigen Lox‑Stacks: Interpreter, Parser, Compiler, VM und Transpiler.
+## Einleitung
 
----
+Dieses Projekt behandelt die schrittweise Umsetzung eines **Lox-Compilers** und verfolgt dabei die zentralen Konzepte des Compilerbaus. Ziel ist es, die Sprache Lox von der Quelltextanalyse über die AST-Generierung bis hin zur Ausführung auf einer virtuellen Maschine zu bearbeiten.  
 
-## Aktueller Stand (Januar 2026)
+Besonderer Fokus liegt auf der Nutzung moderner **Java-Sprachkonzepte** wie **Records, Pattern Matching, sealed Interfaces/Classes, Lambda-Ausdrücken** und **Streams**, um den Code klar, modular und wartbar zu gestalten.  
 
-### 0_lox – Interpreter
-- **Funktionalität:** Klassen, Vererbung, `super`, Closures, Kontrollfluss, Variablen, Rückgabe
-- **Tests:** InterpreterTest mit Basis- und komplexen Fällen
-- **Status:** funktionsfähig und getestet
+Das Projekt gliedert sich in sechs aufeinander aufbauende Phasen:
 
----
+1. **Vorbereitung (Aufgabe 0)**  
+   Der ursprüngliche Lox-Interpreter wurde strukturell überarbeitet, modernisiert und in Dateien klar strukturiert. Das Projekt ist ohne Build-Werkzeug lauffähig.  
 
-### 1_Scanner – Scanner (separat)
-- **Ziel:** Tokenisierung von Quellcode
-- **Status:** implementiert (separates Modul)
+2. **Scanner-Austausch (Aufgabe 1)**  
+   Der alte Scanner wurde durch eine Implementierung auf Basis **regulärer Ausdrücke** ersetzt.  
 
----
+3. **Parser-Austausch (Aufgabe 2)**  
+   - **AST-Generierung:** Einsatz von **Parserkombinatoren** zur Erzeugung eines ASTLox, der die bestehende Lox-Implementierung unverändert weiter nutzen kann.  
+   - **Visualisierung:** Der AST kann als **Graphviz-dot-Datei** ausgegeben werden, um die Struktur grafisch darzustellen.  
 
-### 2_parser – Parser
-- **ParserMain:** Parser-Kombinatoren, AST‑Erzeugung, `parseProgram()`
-- **Status:** funktionsfähig und in anderen Modulen genutzt
+4. **Transpiler (Aufgabe 3)**  
+   Der ASTLox wird in ein semantisch äquivalentes Programm in **JavaScript** übersetzt.  
 
----
+5. **Lox-VM & Assembler (Aufgabe 4)**  
+   - **Lox-VMJava:** Für die Ausführung von Bytecode-Programmen, die durch den Bytecode-Compiler erzeugt wurden, wird die Lox-VMJava verwendet.  
+   - **Smart-Assembler:** Für die Erzeugung von Bytecode wird ein **Smart-Assembler** eingesetzt, der als **High-Level DSL in Java** implementiert ist. Er ermöglicht die programmatische Generierung von Bytecode über Methodenaufrufe, z. B. für Konstanten, Operationen, Schleifen, Bedingungen, Funktionen und Klassen. Sprung-Offsets, lokale Variablen, Upvalues und Funktionsaufrufe werden automatisch korrekt aufgelöst, sodass der erzeugte Bytecode direkt von der Lox-VMJava ausgeführt werden kann.
 
-### 3_transpiler – Lox → JavaScript
-- **JsTranspiler:** Funktions- und Klassentranspilation, `super`‑Aufrufe, Warnungen
-- **Tests:** JsTranspilerTest (Basis + kritische Fälle)
-- **Status:** funktionsfähig
-- **Verbesserungspotenzial:** JS-Ausgabe (Instanziierung), detailliertere Warnungen
+6. **Bytecode-Compiler (Aufgabe 5)**  
+   Aufbauend auf ScannerRegEx und Parserkombinatoren erzeugt der Compiler aus dem ASTLox **Bytecode für die Lox-VMJava**. Die komplette Toolchain aus Compiler, Assembler und VM ermöglicht so die Ausführung von Lox-Programmen.  
 
----
+Alle Phasen sind in eigenen Ordnern dokumentiert, inklusive detaillierter Beschreibungen, Beispielen und Nutzungshinweisen.
 
-### 4_vm – VM + SmartAssembler
-- **VM:** Bytecode‑Ausführung
-- **SmartAssembler:** DSL für Bytecode‑Erzeugung
-- **Tests:** SmartAssemblerTest / SmartAssemblerVmTest
-- **Status:** funktionsfähig
-
----
-
-### 5_compiler – Compiler
-- **Pipeline:** Parser → AST → SmartAssembler → Bytecode → VM
-- **Features:** Kontrollfluss, Funktionen, Klassen, Vererbung, Closures
-- **Tests:** CompilerTest
-- **Status:** funktionsfähig
-
----
-
-## Nächste Schritte
-1. Transpiler‑Warnungen präzisieren (Closure‑/Funktionswerte)
-2. JS‑Output: Instanzierung mit `new`
-3. Tests weiter ausbauen (Edge‑Cases)
-4. Dokumentation konsolidieren
-
----
-
-*Stand: 31. Januar 2026*
+## Navigation
+- Aufgabe 0: [0_lox/README.md](0_lox/README.md)  
+- Aufgabe 1: [1_Scanner/README.md](1_Scanner/README.md)  
+- Aufgabe 2: [2_parser/README.md](2_parser/README.md)  
+- Aufgabe 3: [3_transpiler/README.md](3_transpiler/README.md)  
+- Aufgabe 4: [4_vm/README.md](4_vm/README.md)  
+- Aufgabe 5: [5_compiler/README.md](5_compiler/README.md)

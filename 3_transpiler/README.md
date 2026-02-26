@@ -578,5 +578,5 @@ Die wichtigste Erkenntnis: Sprachen unterscheiden sich nicht nur in der Syntax, 
 
 
 ## Navigation
-- Zurück zum Einstieg: [Compiler.md](/Compiler.md)
+- Zurück zum Einstieg: [Compiler.md](/README.md)
 - Weiter zu Aufgabe 3: [4_vm/README.md](/4_vm/README.md)
